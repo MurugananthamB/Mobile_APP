@@ -197,7 +197,9 @@ export default function TimetableScreen() {
                             </View>
                           )}
                         </View>
-                      ) : null}
+                      ) : (
+                        <View />
+                      )}
                     </TouchableOpacity>
                   );
                 })}

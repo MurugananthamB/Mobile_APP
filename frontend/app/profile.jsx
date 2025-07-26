@@ -1,9 +1,13 @@
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, CreditCard as Edit3 } from 'lucide-react-native';
+import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { AntDesign } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
+  const router = useRouter();
+
   const studentInfo = {
     name: 'John Doe',
     rollNo: '15',
@@ -29,13 +33,21 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Custom Header */}
+      <View style={styles.customHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <AntDesign name="arrowleft" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+      </View>
+
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Profile Information Header */}
         <LinearGradient
           colors={['#1e40af', '#3b82f6']}
-          style={styles.header}
+          style={styles.profileHeader}
         >
-          <View style={styles.headerContent}>
+          <View style={styles.profileHeaderContent}>
             <Image
               source={{ uri: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400' }}
               style={styles.profileImage}
@@ -168,14 +180,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  header: {
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    marginRight: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  profileHeader: {
     paddingHorizontal: 20,
     paddingVertical: 30,
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  headerContent: {
+  profileHeaderContent: {
     alignItems: 'center',
   },
   profileImage: {

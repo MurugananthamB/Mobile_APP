@@ -16,9 +16,22 @@
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": ["expo-router", "expo-font", "expo-web-browser"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "004741d9-1f0b-4158-affb-f37ede7cde44"
+      }
+    },
+    "android": {
+      "package": "com.aadarsh050.boltexponativewind"
     }
   }
 }

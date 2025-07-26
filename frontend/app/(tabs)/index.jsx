@@ -1,16 +1,23 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight } from 'lucide-react-native';
+import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight,BookOpen,Bed,CalendarDays } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   const quickActions = [
     { title: 'Profile', icon: User, route: 'profile', color: '#1e40af' },
     { title: 'Attendance', icon: Calendar, route: 'attendance', color: '#0891b2' },
     { title: 'Fees', icon: DollarSign, route: 'fees', color: '#ea580c' },
-    { title: 'Timetable', icon: Clock, route: 'timetable', color: '#7c3aed' },
-    { title: 'Notices', icon: Bell, route: 'notices', color: '#dc2626' },
+    { title: 'Timetable', icon: Clock, route: 'timetable', color: '#8e6e31' },
+    { title: 'Circluar', icon: Bell, route: 'notices', color: '#dc2626' },
     { title: 'Results', icon: FileText, route: 'results', color: '#059669' },
+    { title: 'Homework', icon: BookOpen, route: 'results', color: '#7572ff' },
+    { title: 'Events', icon: CalendarDays, route: 'results', color: '#ffbb39' },
+    { title: 'Hostel', icon: Bed, route: 'results', color: '#a8da61' },
+    
   ];
 
   const recentActivities = [
@@ -63,7 +70,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action, index) => (
-              <TouchableOpacity key={index} style={styles.actionCard}>
+              <TouchableOpacity key={index} style={styles.actionCard} onPress={() => router.push(action.route)}>
                 <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
                   <action.icon size={24} color="#ffffff" />
                 </View>

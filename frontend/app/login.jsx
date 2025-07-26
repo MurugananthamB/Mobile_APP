@@ -18,7 +18,7 @@ export default function LoginScreen() {
     }
 
     // Simple demo authentication
-    if (studentId === 'ST2023001' && password === 'password123') {
+    if (studentId === '123' && password === '123') {
       router.replace('/(tabs)');
     } else {
       Alert.alert('Error', 'Invalid Student ID or Password');
@@ -36,19 +36,18 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#1e40af', '#3b82f6', '#60a5fa']}
+        colors={['#e69138','#dc207d','#f1c232']}
         style={styles.gradient}
       >
         <View style={styles.content}>
           {/* Logo and Title */}
           <View style={styles.logoContainer}>
-            <Image
-              source={{ uri: 'https://images.pexels.com/photos/289740/pexels-photo-289740.jpeg?auto=compress&cs=tinysrgb&w=400' }}
-              style={styles.logo}
-            />
-            <Text style={styles.title}>Smart School</Text>
-            <Text style={styles.subtitle}>Student Portal</Text>
-          </View>
+      <Image
+        source={require('../assets/gbps.jpg')} // Adjust path based on your file structure
+        style={styles.logo}
+      />
+     
+    </View>
 
           {/* Login Form */}
           <View style={styles.formContainer}>
@@ -56,7 +55,7 @@ export default function LoginScreen() {
               <User size={20} color="#6b7280" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Student ID"
+                placeholder="User ID"
                 placeholderTextColor="#9ca3af"
                 value={studentId}
                 onChangeText={setStudentId}
@@ -116,19 +115,24 @@ export default function LoginScreen() {
             <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
               <Text style={styles.forgotButtonText}>Forgot Password?</Text>
             </TouchableOpacity>
+
+            {/* Register Button */}
+            <TouchableOpacity style={styles.registerButton} onPress={() => router.replace('/register')}>
+              <Text style={styles.registerButtonText}>Don't have an account? Register</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Demo Credentials */}
-          <View style={styles.demoContainer}>
+          {/* <View style={styles.demoContainer}>
             <Text style={styles.demoTitle}>Demo Credentials</Text>
             <Text style={styles.demoText}>Student ID: ST2023001</Text>
             <Text style={styles.demoText}>Password: password123</Text>
-          </View>
+          </View> */}
 
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              © 2024 Smart School. All rights reserved.
+              © 2025 GBPS. All rights reserved.
             </Text>
           </View>
         </View>
@@ -150,16 +154,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: 'right',
     marginBottom: 40,
   },
   logo: {
-    width: 100,
+    width: 350,
     height: 100,
-    borderRadius: 50,
+    // borderRadius: 50,
     marginBottom: 20,
-    borderWidth: 3,
-    borderColor: '#ffffff',
+    // borderWidth: 3,
+    // borderColor: '#ffffff',
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,
@@ -250,8 +255,18 @@ const styles = StyleSheet.create({
   },
   forgotButton: {
     alignItems: 'center',
+    marginBottom: 10,
   },
   forgotButtonText: {
+    fontSize: 14,
+    color: '#1e40af',
+    fontWeight: '600',
+  },
+  registerButton: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  registerButtonText: {
     fontSize: 14,
     color: '#1e40af',
     fontWeight: '600',

@@ -2,9 +2,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Clock, ChevronLeft, ChevronRight, MapPin, User } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { AntDesign } from '@expo/vector-icons';
 
 export default function TimetableScreen() {
   const [currentWeek, setCurrentWeek] = useState(0);
+  const router = useRouter();
 
   const timetableData = {
     timeSlots: [
@@ -112,15 +115,15 @@ export default function TimetableScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Clock size={24} color="#1e40af" />
-            <Text style={styles.headerTitle}>Timetable</Text>
-          </View>
-        </View>
+      {/* Custom Header */}
+      <View style={styles.customHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <AntDesign name="arrowleft" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Timetable</Text>
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Week Navigation */}
         <View style={styles.weekNavigation}>
           <TouchableOpacity onPress={() => navigateWeek(-1)} style={styles.navButton}>
@@ -230,23 +233,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  header: {
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 15,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  backButton: {
+    marginRight: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1f2937',
-    marginLeft: 10,
   },
+  // Removed the previous header styles, as they are now replaced by customHeader
+  // header: {
+  //   paddingHorizontal: 20,
+  //   paddingVertical: 20,
+  //   backgroundColor: '#ffffff',
+  //   borderBottomWidth: 1,
+  //   borderBottomColor: '#e5e7eb',
+  // },
+  // headerContent: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  // },
   weekNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',

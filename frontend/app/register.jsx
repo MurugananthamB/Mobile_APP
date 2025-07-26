@@ -1,21 +1,53 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Lock, Mail, ChevronDown } from 'lucide-react-native';
+import { User, Lock, Mail, ChevronDown, GraduationCap, Users, Building2, Eye, EyeOff } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { Picker } from '@react-native-picker/picker'; // Using Picker for user type selection
+import ApiService from '../services/api';
 
 export default function RegisterScreen() {
-  const [username, setUsername] = useState('');
+  const [userid, setUserid] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [userType, setUserType] = useState('student'); // Default user type
+  const [showPicker, setShowPicker] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = () => {
-    if (!username || !email || !password || !confirmPassword) {
+  const userTypes = [
+    { label: 'Register as Student', value: 'student', icon: GraduationCap, color: '#3b82f6' },
+    { label: 'Register as Staff', value: 'staff', icon: Users, color: '#10b981' },
+    { label: 'Register as Management', value: 'management', icon: Building2, color: '#f59e0b' },
+  ];
+
+  const selectedUserType = userTypes.find(type => type.value === userType);
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
+
+  const handleRegister = async () => {
+    // Validation
+    if (!userid || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields.');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      Alert.alert('Error', 'Password must be at least 6 characters long.');
       return;
     }
 
@@ -24,15 +56,39 @@ export default function RegisterScreen() {
       return;
     }
 
-    // Here you would typically send data to a backend for actual registration
-    Alert.alert(
-      'Registration Successful!',
-      `Registered as ${userType}:
-Username: ${username}
-Email: ${email}`
-    );
-    // For now, navigate back to login after successful registration
-    router.replace('/login');
+    setIsLoading(true);
+
+    try {
+      const userData = {
+        userid,
+        email,
+        password,
+        role: userType
+      };
+
+      console.log('Sending registration data:', userData);
+      const response = await ApiService.register(userData);
+
+      Alert.alert(
+        'Registration Successful!',
+        `Welcome to GBPS! Your account has been created successfully.\n\nUser ID: ${response.user.userid}\nEmail: ${response.user.email}\nRole: ${response.user.role}`,
+        [
+          {
+            text: 'Go to Login',
+            onPress: () => router.replace('/login'),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert(
+        'Registration Failed',
+        error.message || 'Something went wrong. Please try again.',
+        [{ text: 'Try Again' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -53,27 +109,29 @@ Email: ${email}`
               <User size={20} color="#6b7280" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Username"
+                placeholder="userid"
                 placeholderTextColor="#9ca3af"
-                value={username}
-                onChangeText={setUsername}
+                value={userid}
+                onChangeText={setUserid}
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
             </View>
 
             <View style={styles.inputContainer}>
               <Mail size={20} color="#6b7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#9ca3af"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+                                    <TextInput
+                        style={styles.input}
+                        placeholder="Email Address"
+                        placeholderTextColor="#9ca3af"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        editable={!isLoading}
+                      />
             </View>
 
             <View style={styles.inputContainer}>
@@ -104,18 +162,74 @@ Email: ${email}`
               />
             </View>
 
-            <View style={styles.inputContainer}> 
-              <User size={20} color="#6b7280" style={styles.inputIcon} />
-              <Picker
-                selectedValue={userType}
-                style={styles.picker}
-                onValueChange={(itemValue) => setUserType(itemValue)}
-              >
-                <Picker.Item label="Register as Student" value="student" />
-                <Picker.Item label="Register as Staff" value="staff" />
-                <Picker.Item label="Register as Management" value="management" />
-              </Picker>
-            </View>
+            {/* Custom User Type Selector */}
+                                <TouchableOpacity
+                      style={styles.customPickerContainer}
+                      onPress={() => setShowPicker(true)}
+                      activeOpacity={0.7}
+                      disabled={isLoading}
+                    >
+              <View style={styles.pickerHeader}>
+                <View style={styles.pickerIconContainer}>
+                  <selectedUserType.icon size={20} color={selectedUserType.color} />
+                </View>
+                <View style={styles.pickerTextContainer}>
+                  <Text style={styles.pickerLabel}>User Type</Text>
+                  <Text style={[styles.pickerValue, { color: selectedUserType.color }]}>
+                    {selectedUserType.label}
+                  </Text>
+                </View>
+                <ChevronDown size={20} color="#6b7280" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Custom Picker Modal */}
+            <Modal
+              visible={showPicker}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowPicker(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Select User Type</Text>
+                    <TouchableOpacity onPress={() => setShowPicker(false)}>
+                      <Text style={styles.modalClose}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {userTypes.map((type, index) => (
+                    <TouchableOpacity
+                      key={type.value}
+                      style={[
+                        styles.optionItem,
+                        userType === type.value && styles.optionItemSelected
+                      ]}
+                      onPress={() => {
+                        setUserType(type.value);
+                        setShowPicker(false);
+                      }}
+                    >
+                      <View style={[styles.optionIcon, { backgroundColor: type.color + '20' }]}>
+                        <type.icon size={24} color={type.color} />
+                      </View>
+                      <Text style={[
+                        styles.optionText,
+                        userType === type.value && { color: type.color, fontWeight: '600' }
+                      ]}>
+                        {type.label}
+                      </Text>
+                      {userType === type.value && (
+                        <View style={[styles.checkmark, { backgroundColor: type.color }]}>
+                          <Text style={styles.checkmarkText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Modal>
 
             {/* Register Button */}
             <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
@@ -188,10 +302,107 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2937',
   },
-  picker: {
+  // Custom Picker Styles
+  customPickerContainer: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+  },
+  pickerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  pickerTextContainer: {
     flex: 1,
-    height: 50,
+  },
+  pickerLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  pickerValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#1f2937',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: '#6b7280',
+    fontWeight: '300',
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  optionItemSelected: {
+    backgroundColor: '#f8fafc',
+  },
+  optionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  checkmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   registerButton: {
     borderRadius: 12,
@@ -206,13 +417,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
+    marginLeft: 10,
+  },
+  registerButtonDisabled: {
+    opacity: 0.7,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButton: {
     alignItems: 'center',
   },
   backButtonText: {
     fontSize: 14,
-    color: '#1e40af',
+    color: '#6b7280',
+  },
+  backButtonTextBold: {
     fontWeight: '600',
+    color: '#1e40af',
+  },
+  eyeIcon: {
+    padding: 5,
   },
 });

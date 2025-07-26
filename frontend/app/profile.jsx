@@ -1,13 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { AntDesign } from '@expo/vector-icons';
+import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3, LogOut } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 export default function ProfileScreen() {
-  const router = useRouter();
-
   const studentInfo = {
     name: 'John Doe',
     rollNo: '15',
@@ -31,16 +28,29 @@ export default function ProfileScreen() {
     { label: 'Academic Year', value: '2023-24' },
   ];
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => {
+            console.log('Logout confirmed - redirecting to login');
+            router.replace('/login');
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Custom Header */}
-      <View style={styles.customHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <AntDesign name="arrowleft" size={24} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Information Header */}
         <LinearGradient
@@ -68,7 +78,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Basic Information</Text>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
+            <View style={styles.infoItem}>
                 <User size={20} color="#1e40af" />
                 <View style={styles.infoText}>
                   <Text style={styles.infoLabel}>Admission No</Text>
@@ -84,7 +94,7 @@ export default function ProfileScreen() {
               </View>
             </View>
             <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
+            <View style={styles.infoItem}>
                 <BookOpen size={20} color="#1e40af" />
                 <View style={styles.infoText}>
                   <Text style={styles.infoLabel}>Blood Group</Text>
@@ -99,9 +109,9 @@ export default function ProfileScreen() {
                 </View>
               </View>
             </View>
-          </View>
+            </View>
         </View>
-
+        
         {/* Academic Performance */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Academic Performance</Text>
@@ -170,6 +180,14 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {/* Logout Button */}
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <LogOut size={20} color="#ffffff" />
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -179,23 +197,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
-  },
-  customHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  backButton: {
-    marginRight: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1f2937',
   },
   profileHeader: {
     paddingHorizontal: 20,
@@ -371,5 +372,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#1f2937',
+  },
+  logoutButton: {
+    backgroundColor: '#dc2626',
+    borderRadius: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoutButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

@@ -1,13 +1,9 @@
-import { useEffect } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '../hooks/useFrameworkReady.jsx';
-import { TouchableOpacity, View } from 'react-native';
-import { AntDesign } from '@expo/vector-icons';
 
 export default function RootLayout() {
   useFrameworkReady();
-  const router = useRouter();
 
   return (
     <>
@@ -27,6 +23,9 @@ export default function RootLayout() {
         <Stack.Screen name="timetable" options={{ title: 'Timetable' }} />
         <Stack.Screen name="notices" options={{ title: 'Notices' }} />
         <Stack.Screen name="results" options={{ title: 'Results' }} />
+        <Stack.Screen name="homework" options={{ title: 'Homework' }} />
+        <Stack.Screen name="events" options={{ title: 'Events' }} />
+        <Stack.Screen name="hostel" options={{ title: 'Hostel' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight,BookOpen,Bed,CalendarDays } from 'lucide-react-native';
+import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
@@ -14,9 +14,9 @@ export default function HomeScreen() {
     { title: 'Timetable', icon: Clock, route: 'timetable', color: '#8e6e31' },
     { title: 'Circluar', icon: Bell, route: 'notices', color: '#dc2626' },
     { title: 'Results', icon: FileText, route: 'results', color: '#059669' },
-    { title: 'Homework', icon: BookOpen, route: 'results', color: '#7572ff' },
-    { title: 'Events', icon: CalendarDays, route: 'results', color: '#ffbb39' },
-    { title: 'Hostel', icon: Bed, route: 'results', color: '#a8da61' },
+    { title: 'Homework', icon: BookOpen, route: 'homework', color: '#7572ff' },
+    { title: 'Events', icon: CalendarDays, route: 'events', color: '#ffbb39' },
+    { title: 'Hostel', icon: Bed, route: 'hostel', color: '#a8da61' },
     
   ];
 

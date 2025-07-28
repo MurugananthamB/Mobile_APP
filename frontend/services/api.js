@@ -140,6 +140,11 @@ class ApiService {
     return await this.makeRequest(`/homework/${id}`);
   }
 
+  async getStaffMembers(subject = null) {
+    const endpoint = subject ? `/homework/staff?subject=${encodeURIComponent(subject)}` : '/homework/staff';
+    return await this.makeRequest(endpoint);
+  }
+
   async submitHomework(homeworkId, submissionData) {
     return await this.makeRequest(`/homework/${homeworkId}/submit`, {
       method: 'POST',
@@ -147,9 +152,12 @@ class ApiService {
     });
   }
 
-  async markHomeworkComplete(homeworkId) {
-    return await this.makeRequest(`/homework/${homeworkId}/complete`, {
-      method: 'PUT',
+
+
+  async createHomework(homeworkData) {
+    return await this.makeRequest('/homework', {
+      method: 'POST',
+      body: JSON.stringify(homeworkData),
     });
   }
 

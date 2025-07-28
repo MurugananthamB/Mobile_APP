@@ -2,10 +2,23 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
-const { getHomework, getHomeworkById, submitHomework, markHomeworkComplete } = require('../controllers/homeworkController');
+const { 
+  getHomework, 
+  getHomeworkById, 
+  submitHomework, 
+  markHomeworkComplete, 
+  createHomework,
+  getStaffMembers 
+} = require('../controllers/homeworkController');
 
 // All routes are protected
 router.use(protect);
+
+// GET /api/homework/staff - Get staff members for assignment
+router.get('/staff', getStaffMembers);
+
+// POST /api/homework - Create new homework (staff/management only)
+router.post('/', createHomework);
 
 // GET /api/homework - Get all homework for user's class
 router.get('/', getHomework);

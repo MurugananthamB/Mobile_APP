@@ -1,9 +1,33 @@
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, Clock, MapPin, Users, Star, Plus } from 'lucide-react-native';
+import ApiService from '../services/api';
 
 export default function EventsScreen() {
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const storedUserData = await ApiService.getStoredUserData();
+      setUserData(storedUserData);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
+
+  // Check if user can add events (management or staff only)
+  const canAddEvent = () => {
+    if (!userData || !userData.role) return false;
+    const userRole = userData.role.toLowerCase();
+    return userRole === 'management' || userRole === 'staff';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -17,9 +41,11 @@ export default function EventsScreen() {
               <Text style={styles.headerTitle}>Events</Text>
               <Text style={styles.headerSubtitle}>4 upcoming events</Text>
             </View>
-            <TouchableOpacity style={styles.addButton}>
-              <Plus size={20} color="#ffffff" />
-            </TouchableOpacity>
+            {canAddEvent() && (
+              <TouchableOpacity style={styles.addButton}>
+                <Plus size={20} color="#ffffff" />
+              </TouchableOpacity>
+            )}
           </View>
         </LinearGradient>
 

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "bolt-expo-nativewind",
-    "slug": "bolt-expo-nativewind",
+    "name": "School Mobile App",
+    "slug": "school-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -21,13 +21,10 @@
       "expo-web-browser"
     ],
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "004741d9-1f0b-4158-affb-f37ede7cde44"
-      }
+      "router": {}
     },
     "android": {
-      "package": "com.aadarsh050.boltexponativewind"
+      "package": "com.aadarsh050.schoolmobileapp"
     }
   }
 }

@@ -27,14 +27,10 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
-// Middlewares
-app.use(cors({
-  origin: [
-    'http://localhost:8081', // Expo local development
-   // Alternative localhost
-  ],
-  credentials: true
-}));
+// ✅ Enable CORS for all origins
+app.use(cors());
+
+// Middleware to parse JSON bodies
 app.use(express.json());
 
 // Debug middleware to log all requests

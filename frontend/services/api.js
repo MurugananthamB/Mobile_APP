@@ -2,9 +2,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Base URL for your backend
-// Using localhost for both frontend and backend to avoid mixed content
+// For React Native, use your computer's IP address instead of localhost
 const BASE_URL = __DEV__ 
-  ? 'http://localhost:5000/api'  // Localhost backend
+  ? 'http://192.168.101.45:5000/api'  // Your computer's IP address
   : 'https://your-production-api.com/api'; // Production
 
 class ApiService {
@@ -26,18 +26,34 @@ class ApiService {
 
       // Add token to headers if available
       const token = await AsyncStorage.getItem('authToken');
+      console.log('🔑 Auth token available:', !!token);
+      console.log('🔑 Token value:', token ? token.substring(0, 20) + '...' : 'None');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log('🔑 Token added to headers');
+        console.log('📋 Authorization header:', config.headers.Authorization ? 'Present' : 'Missing');
+      } else {
+        console.log('⚠️ No auth token found');
       }
 
       console.log('Making API request to:', url);
+      console.log('📝 Request config:', {
+        method: config.method || 'GET',
+        headers: config.headers,
+        body: config.body ? 'Present' : 'None'
+      });
       const response = await fetch(url, config);
       const data = await response.json();
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response data:', data);
+
       if (!response.ok) {
+        console.log('❌ API request failed:', response.status, data);
         throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
+      console.log('✅ API request successful');
       return data;
     } catch (error) {
       console.error('API Request Error:', error);
@@ -163,7 +179,15 @@ class ApiService {
 
   // =============== EVENTS METHODS ===============
   async getEvents() {
-    return await this.makeRequest('/events');
+    console.log('🎯 ApiService.getEvents called');
+    try {
+      const result = await this.makeRequest('/events');
+      console.log('✅ ApiService.getEvents successful:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ ApiService.getEvents failed:', error);
+      throw error;
+    }
   }
 
   async getEventById(id) {
@@ -173,6 +197,30 @@ class ApiService {
   async registerForEvent(eventId) {
     return await this.makeRequest(`/events/${eventId}/register`, {
       method: 'POST',
+    });
+  }
+
+  async createEvent(eventData) {
+    console.log('🎯 ApiService.createEvent called with:', eventData);
+    console.log('🔗 Endpoint: /events');
+    console.log('📤 Request body:', JSON.stringify(eventData, null, 2));
+    
+    try {
+      const result = await this.makeRequest('/events', {
+        method: 'POST',
+        body: JSON.stringify(eventData),
+      });
+      console.log('✅ ApiService.createEvent successful:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ ApiService.createEvent failed:', error);
+      throw error;
+    }
+  }
+
+  async clearAllEvents() {
+    return await this.makeRequest('/events/clear', {
+      method: 'DELETE',
     });
   }
 

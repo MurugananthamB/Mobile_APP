@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Calendar, Clock, CheckCircle, Circle, FileText, Plus, AlertCircle, X, ChevronDown, Users, Building2, GraduationCap } from 'lucide-react-native';
+import { BookOpen, Calendar, Clock, CheckCircle, Circle, FileText, Plus, AlertCircle, X, ChevronDown, Users, Building2, GraduationCap, Star, TrendingUp, Award, Bookmark } from 'lucide-react-native';
 import ApiService from '../services/api';
 
 export default function HomeworkScreen() {
@@ -123,14 +123,18 @@ export default function HomeworkScreen() {
       const response = await ApiService.getHomework();
       console.log('Homework response received:', response);
       
-      // Handle backend response structure: { success: true, data: homework }
+      // Handle backend response structure: { success: true, data: homework, user: userInfo }
       let homeworkData = response?.data || response;
+      const userInfo = response?.user || userData;
+      
       console.log('Homework data extracted:', homeworkData);
+      console.log('User info from API:', userInfo);
       
       // Debug: Log the raw homework data first
       console.log('📋 Raw homework data from backend:', homeworkData);
       console.log('📋 Number of homework items received:', homeworkData?.length || 0);
-      console.log('👤 Current user role:', userData?.role);
+      console.log('👤 Current user role:', userInfo?.role);
+      console.log('👤 User info from API response:', userInfo);
       
       // TEMPORARILY DISABLE FILTERING FOR DEBUGGING
       console.log('⚠️ Date filtering temporarily disabled for debugging');
@@ -162,7 +166,7 @@ export default function HomeworkScreen() {
       }
       */
       
-      console.log(`📊 Final homework count: ${homeworkData?.length || 0} items for ${userData?.role}`);
+      console.log(`📊 Final homework count: ${homeworkData?.length || 0} items for ${userInfo?.role}`);
       setHomework(Array.isArray(homeworkData) ? homeworkData : []);
     } catch (error) {
       console.error('Error loading homework:', error);
@@ -360,52 +364,102 @@ export default function HomeworkScreen() {
 
   const renderHomeworkCard = (item) => (
     <View key={item._id} style={styles.homeworkCard}>
-      <View style={styles.homeworkHeader}>
-        <View style={styles.subjectContainer}>
-          <BookOpen size={16} color="#1e40af" />
-          <Text style={styles.subjectText}>{item.subject}</Text>
-          {/* Show target audience badge for management */}
-          {isManagement() && item.targetAudience && (
-            <View style={[styles.audienceBadge, { backgroundColor: getAudienceColor(item.targetAudience) }]}>
-              <Text style={styles.audienceText}>{item.targetAudience.toUpperCase()}</Text>
+      <LinearGradient
+        colors={[getAudienceColor(item.targetAudience), getAudienceColor(item.targetAudience) + '40']}
+        style={styles.cardGradient}
+      >
+        {/* Priority indicator */}
+        <View style={styles.priorityIndicator}>
+          <Star size={12} color="#ffffff" fill="#ffffff" />
+        </View>
+        
+        <View style={styles.homeworkHeader}>
+          <View style={styles.subjectContainer}>
+            <View style={styles.subjectIconContainer}>
+              <BookOpen size={20} color="#ffffff" />
+            </View>
+            <Text style={styles.subjectText}>{item.subject}</Text>
+            {/* Show target audience badge for management */}
+            {isManagement() && item.targetAudience && (
+              <View style={styles.audienceBadge}>
+                <Text style={styles.audienceText}>{item.targetAudience.toUpperCase()}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.statusIndicator}>
+            <View style={[styles.statusDot, { backgroundColor: getAudienceColor(item.targetAudience) }]} />
+          </View>
+        </View>
+        
+        <View style={styles.titleContainer}>
+          <Text style={styles.homeworkTitle}>{item.title}</Text>
+          <View style={styles.urgencyBadge}>
+            <TrendingUp size={12} color="#ffffff" />
+            <Text style={styles.urgencyText}>Active</Text>
+          </View>
+        </View>
+        
+        <Text style={styles.homeworkDescription}>{item.description}</Text>
+        
+        <View style={styles.homeworkDetails}>
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <View style={styles.detailIconContainer}>
+                <Calendar size={14} color="#ffffff" />
+              </View>
+              <View style={styles.detailTextContainer}>
+                <Text style={styles.detailLabel}>From</Text>
+                <Text style={styles.detailText}>
+                  {new Date(item.fromDate).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.detailItem}>
+              <View style={styles.detailIconContainer}>
+                <Calendar size={14} color="#ffffff" />
+              </View>
+              <View style={styles.detailTextContainer}>
+                <Text style={styles.detailLabel}>Due</Text>
+                <Text style={styles.detailText}>
+                  {new Date(item.toDate).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        
+        {/* Show assignment details */}
+        <View style={styles.assignmentDetails}>
+          {item.assignedClass && item.assignedSection && (
+            <View style={styles.assignmentItem}>
+              <View style={styles.assignmentIconContainer}>
+                <Text style={styles.assignmentIcon}>🎓</Text>
+              </View>
+              <Text style={styles.assignmentText}>Class {item.assignedClass}-{item.assignedSection}</Text>
+            </View>
+          )}
+          {item.assignedDepartment && (
+            <View style={styles.assignmentItem}>
+              <View style={styles.assignmentIconContainer}>
+                <Text style={styles.assignmentIcon}>🏢</Text>
+              </View>
+              <Text style={styles.assignmentText}>{item.assignedDepartment}</Text>
             </View>
           )}
         </View>
-
-      </View>
-      
-      <Text style={styles.homeworkTitle}>{item.title}</Text>
-      <Text style={styles.homeworkDescription}>{item.description}</Text>
-      
-      <View style={styles.homeworkDetails}>
-        <View style={styles.detailItem}>
-          <Calendar size={14} color="#6b7280" />
-          <Text style={styles.detailText}>
-            From: {new Date(item.fromDate).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Calendar size={14} color="#ef4444" />
-          <Text style={styles.detailText}>
-            To: {new Date(item.toDate).toLocaleDateString()}
-          </Text>
-        </View>
-      </View>
-      
-      {/* Show assignment details */}
-      <View style={styles.assignmentDetails}>
-        {item.assignedClass && item.assignedSection && (
-          <Text style={styles.assignmentText}>🎓 Class: {item.assignedClass}-{item.assignedSection}</Text>
-        )}
-        {item.assignedDepartment && (
-          <Text style={styles.assignmentText}>🏢 Department: {item.assignedDepartment}</Text>
-        )}
-      </View>
-      
-      <View style={styles.homeworkFooter}>
-        <Text style={styles.teacherText}>Teacher: {item.teacherName || item.teacher}</Text>
         
-      </View>
+        <View style={styles.homeworkFooter}>
+          <View style={styles.teacherInfo}>
+            <View style={styles.teacherIconContainer}>
+              <Text style={styles.teacherIcon}>👨‍🏫</Text>
+            </View>
+            <View style={styles.teacherTextContainer}>
+              <Text style={styles.teacherLabel}>Assigned by</Text>
+              <Text style={styles.teacherText}>{item.teacherName || item.teacher}</Text>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
     </View>
   );
 
@@ -413,10 +467,10 @@ export default function HomeworkScreen() {
 
   const getAudienceColor = (audience) => {
     switch (audience?.toLowerCase()) {
-      case 'students': return '#3b82f620';
-      case 'staff': return '#10b98120';
-      case 'both': return '#f59e0b20';
-      default: return '#6b728020';
+      case 'students': return '#3b82f6';
+      case 'staff': return '#10b981';
+      case 'both': return '#f59e0b';
+      default: return '#6b7280';
     }
   };
 
@@ -453,22 +507,23 @@ export default function HomeworkScreen() {
         }
       >
         {/* Header */}
-        <LinearGradient colors={['#1e40af', '#3b82f6']} style={styles.header}>
+        <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>Homework</Text>
+              <View style={styles.headerTitleRow}>
+                <BookOpen size={28} color="#ffffff" />
+                <Text style={styles.headerTitle}>Homework</Text>
+              </View>
               <Text style={styles.headerSubtitle}>
-                {pendingHomework?.length || 0} assignments
+                {pendingHomework?.length || 0} pending assignments
               </Text>
               {isManagement() && (
-                <Text style={styles.headerNote}>✨ Management View - Assign to Staff & Students</Text>
+                <View style={styles.managementBadge}>
+                  <Award size={14} color="#ffffff" />
+                  <Text style={styles.managementBadgeText}>Management View</Text>
+                </View>
               )}
             </View>
-            {canAddHomework() && (
-              <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-                <Plus size={24} color="#ffffff" />
-              </TouchableOpacity>
-            )}
           </View>
         </LinearGradient>
 
@@ -489,7 +544,10 @@ export default function HomeworkScreen() {
             {/* Pending Assignments */}
             {pendingHomework.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Pending Assignments</Text>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Pending Assignments</Text>
+                  <Text style={styles.sectionSubtitle}>Tasks to complete</Text>
+                </View>
                 {pendingHomework.map(renderHomeworkCard)}
               </View>
             )}
@@ -498,6 +556,18 @@ export default function HomeworkScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Floating Action Button */}
+      {canAddHomework() && (
+        <TouchableOpacity style={styles.floatingActionButton} onPress={openAddModal}>
+          <LinearGradient
+            colors={['#667eea', '#764ba2']}
+            style={styles.fabGradient}
+          >
+            <Plus size={24} color="#ffffff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
       {/* Add Homework Modal */}
       <Modal
@@ -706,7 +776,7 @@ export default function HomeworkScreen() {
 
               {/* To Date */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Due Date *</Text>
+                <Text style={styles.inputLabel}>Validity Date *</Text>
                 <TouchableOpacity
                   style={[styles.selectInput, !newHomework.toDate && styles.selectInputPlaceholder]}
                   onPress={() => setShowToDatePicker(true)}
@@ -726,17 +796,17 @@ export default function HomeworkScreen() {
                           day: 'numeric' 
                         })})`
                       ) :
-                      'Select Due Date'
+                      'Select Validity Date'
                     }
                   </Text>
                   <ChevronDown size={20} color="#6b7280" />
                 </TouchableOpacity>
                 {newHomework.toDate && (
                   <Text style={styles.selectedDateHelper}>
-                    {typeof newHomework.toDate === 'string' ? 
-                      `Submission due: ${new Date(newHomework.toDate).toLocaleDateString()}` :
-                      `Submission due: ${new Date(Date.now() + newHomework.toDate * 24 * 60 * 60 * 1000).toLocaleDateString()}`
-                    }
+                                    {typeof newHomework.toDate === 'string' ?
+                  `Submission valid until: ${new Date(newHomework.toDate).toLocaleDateString()}` :
+                  `Submission valid until: ${new Date(Date.now() + newHomework.toDate * 24 * 60 * 60 * 1000).toLocaleDateString()}`
+                }
                   </Text>
                 )}
               </View>
@@ -1089,7 +1159,7 @@ export default function HomeworkScreen() {
         <View style={styles.pickerModalOverlay}>
           <View style={styles.datePickerModalContent}>
             <View style={styles.pickerModalHeader}>
-              <Text style={styles.pickerModalTitle}>Select Due Date</Text>
+                              <Text style={styles.pickerModalTitle}>Select Validity Date</Text>
               <TouchableOpacity onPress={() => setShowToDatePicker(false)}>
                 <X size={24} color="#6b7280" />
               </TouchableOpacity>
@@ -1118,7 +1188,7 @@ export default function HomeworkScreen() {
                       month: 'long', 
                       day: 'numeric' 
                     });
-                    Alert.alert('Date Selected', `Due date set to: ${formattedDate} (${days} days from today)`);
+                    Alert.alert('Date Selected', `Validity date set to: ${formattedDate} (${days} days from today)`);
                   }}
                   >
                     <Text style={[
@@ -1311,7 +1381,7 @@ export default function HomeworkScreen() {
                     console.log('✅ Showing confirmation alert:', formattedDate);
                     
                     setTimeout(() => {
-                      Alert.alert('✅ Date Selected', `Due date set to:\n${formattedDate}`);
+                      Alert.alert('✅ Date Selected', `Validity date set to:\n${formattedDate}`);
                     }, 100);
                   }}
                 >
@@ -1349,21 +1419,36 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 5,
+    marginLeft: 8,
   },
   headerSubtitle: {
     fontSize: 14,
     color: '#e2e8f0',
   },
-  headerNote: {
+  managementBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  managementBadgeText: {
     fontSize: 12,
-    color: '#fbbf24',
-    marginTop: 4,
-    fontWeight: '500',
+    color: '#ffffff',
+    fontWeight: '600',
+    marginLeft: 4,
   },
   addButton: {
     width: 48,
@@ -1378,118 +1463,269 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     marginTop: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+  sectionHeader: {
     marginBottom: 15,
   },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
   homeworkCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
     marginBottom: 15,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  cardGradient: {
+    padding: 20,
+    borderRadius: 16,
+    position: 'relative',
+  },
+  priorityIndicator: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
   },
   homeworkHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   subjectContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  subjectIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   subjectText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#1e40af',
-    marginLeft: 6,
+    color: '#ffffff',
+  },
+  statusIndicator: {
+    marginLeft: 12,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ffffff',
+    opacity: 0.8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   audienceBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     marginLeft: 8,
   },
   audienceText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#374151',
+    color: '#ffffff',
   },
-
-  homeworkTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+  titleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  homeworkTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    flex: 1,
+  },
+  urgencyBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  urgencyText: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginLeft: 4,
   },
   homeworkDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#ffffff',
     lineHeight: 20,
     marginBottom: 15,
+    opacity: 0.9,
   },
   homeworkDetails: {
+    marginBottom: 15,
+  },
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 8,
   },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  detailIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  detailTextContainer: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 10,
+    color: '#ffffff',
+    opacity: 0.7,
+    fontWeight: '500',
   },
   detailText: {
     fontSize: 12,
-    color: '#6b7280',
-    marginLeft: 4,
+    color: '#ffffff',
+    opacity: 0.9,
+    fontWeight: '600',
   },
   assignmentDetails: {
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  assignmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  assignmentIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  assignmentIcon: {
+    fontSize: 14,
   },
   assignmentText: {
     fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 2,
+    color: '#ffffff',
+    opacity: 0.9,
+    fontWeight: '500',
   },
   homeworkFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
+  },
+  teacherInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  teacherIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  teacherIcon: {
+    fontSize: 14,
+  },
+  teacherTextContainer: {
+    flex: 1,
+  },
+  teacherLabel: {
+    fontSize: 10,
+    color: '#ffffff',
+    opacity: 0.7,
+    fontWeight: '500',
   },
   teacherText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#ffffff',
+    opacity: 0.9,
+    fontWeight: '600',
+  },
+
+  // Floating Action Button
+  floatingActionButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    zIndex: 1000,
+  },
+  fabGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
+    paddingTop: 100,
   },
   loadingText: {
     fontSize: 16,
     color: '#6b7280',
-    marginTop: 10,
+    marginTop: 16,
+    fontWeight: '500',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingTop: 120,
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#374151',
-    marginTop: 16,
+    marginTop: 20,
     marginBottom: 8,
   },
   emptyDescription: {

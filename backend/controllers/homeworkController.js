@@ -254,16 +254,37 @@ exports.createHomework = async (req, res) => {
       
       if (targetAudience === 'staff' || targetAudience === 'both') {
         homeworkData.assignedDepartment = assignedDepartment;
+        // Add specific staff assignment if provided
+        if (req.body.assignedToStaff) {
+          homeworkData.assignedToStaff = req.body.assignedToStaff;
+          console.log('👔 MANAGEMENT: Assigning homework to specific staff member:', req.body.assignedToStaff);
+        } else {
+          console.log('⚠️ MANAGEMENT: No specific staff assigned - homework will be visible to all staff in department');
+        }
       }
     } else if (req.user.role === 'staff') {
       // Staff can only assign to students
       homeworkData.targetAudience = 'students';
       homeworkData.assignedClass = assignedClass || '10';
       homeworkData.assignedSection = assignedSection || 'A';
+      
+      console.log('👨‍🏫 STAFF CREATING HOMEWORK:');
+      console.log('🎯 Target Audience: students');
+      console.log('📚 Assigned to Class:', homeworkData.assignedClass);
+      console.log('📝 Assigned to Section:', homeworkData.assignedSection);
+      console.log('✅ This homework will be visible to students in Class', homeworkData.assignedClass, 'Section', homeworkData.assignedSection);
     }
 
     const homework = new Homework(homeworkData);
     await homework.save();
+
+    console.log('✅ HOMEWORK CREATED SUCCESSFULLY:');
+    console.log('  Title:', homework.title);
+    console.log('  Subject:', homework.subject);
+    console.log('  TargetAudience:', homework.targetAudience);
+    console.log('  AssignedBy:', homework.assignedBy?.toString());
+    console.log('  AssignedToStaff:', homework.assignedToStaff?.toString() || 'NOT SET');
+    console.log('  AssignedDepartment:', homework.assignedDepartment);
 
     res.status(201).json({ 
       success: true, 
@@ -306,22 +327,84 @@ exports.getHomework = async (req, res) => {
         assignedSection: userSection
       };
       console.log('👨‍🎓 Student query:', query);
+      console.log('📚 Student will see homework assigned to:');
+      console.log('  📍 Class:', userClass);
+      console.log('  📍 Section:', userSection);
+      console.log('  🎯 Target Audience: students OR both');
       
     } else if (req.user.role === 'staff') {
-      // Staff see ONLY homework they have assigned/created AND only until due date
+      // Staff see ONLY homework they assigned/created (more restrictive)
       const mongoose = require('mongoose');
+      const userDepartment = req.user.department || req.user.subject || 'General';
+      
+      // Staff see: 1) Homework they created AND 2) Homework assigned TO them by management
+      const userSubject = req.user.subject || 'General';
+      
+      // Staff see: 1) Homework they created AND 2) Homework assigned TO them by management
       query = { 
-        assignedBy: new mongoose.Types.ObjectId(req.user.id),
-        toDate: { $gte: actualToday } // Only show homework that hasn't passed due date
+        $or: [
+          // Homework they created themselves
+          { assignedBy: req.user.id },
+          // Homework assigned TO staff by management (matching their subject)
+          { 
+            targetAudience: { $in: ['staff', 'both'] },
+            subject: userSubject
+          },
+          // Also include homework created by management for staff (matching their subject)
+          {
+            assignedByRole: 'management',
+            targetAudience: { $in: ['staff', 'both'] },
+            subject: userSubject
+          }
+        ]
       };
-      console.log('👨‍🏫 Staff query (only homework they assigned, not past due):', query);
+      
+      console.log('👨‍🏫 Staff query (homework they created + homework assigned to them):', JSON.stringify(query));
       console.log('👤 Staff user ID:', req.user.id);
+      console.log('📚 Staff subject:', userSubject);
       console.log('📅 Filtering homework with due date >= ', actualToday);
+      console.log('✅ Staff will see:');
+      console.log('  1️⃣ Homework they created themselves');
+      console.log('  2️⃣ Homework assigned to staff by management (matching their subject)');
+      console.log('  3️⃣ Homework created by management for staff (matching their subject)');
+      console.log('  📍 Staff ID:', req.user.id);
+      console.log('  🏢 Department:', userDepartment);
+      console.log('  📚 Subject:', userSubject);
+      
+      // Enhanced debugging to understand the department issue
+      console.log('🔍 STAFF USER DETAILS:');
+      console.log('  👤 User ID:', req.user.id);
+      console.log('  🏢 Department:', req.user.department);
+      console.log('  📚 Subject:', req.user.subject);
+      console.log('  📧 Email:', req.user.email);
+      console.log('  👤 Name:', req.user.name);
       
       // Debug: Check what homework exists in database
-      const allHomework = await Homework.find({}, { title: 1, assignedBy: 1, assignedByRole: 1, toDate: 1 }).limit(10);
-      console.log('🔍 Sample homework in database:', allHomework.map(hw => ({
+      const allHomework = await Homework.find({}, { 
+        title: 1, 
+        assignedBy: 1, 
+        assignedByRole: 1, 
+        toDate: 1,
+        subject: 1,
+        teacherName: 1
+      }).limit(10);
+      
+      // Also get ALL homework without limits to see everything
+      const allHomeworkUnlimited = await Homework.find({});
+      console.log('🔍 ALL HOMEWORK IN DATABASE (unlimited):', allHomeworkUnlimited.map(hw => ({
+        _id: hw._id?.toString(),
         title: hw.title,
+        subject: hw.subject,
+        teacherName: hw.teacherName,
+        assignedBy: hw.assignedBy?.toString(),
+        assignedByRole: hw.assignedByRole,
+        toDate: hw.toDate
+      })));
+      
+      console.log('🔍 ALL homework in database:', allHomework.map(hw => ({
+        title: hw.title,
+        subject: hw.subject,
+        teacherName: hw.teacherName,
         assignedBy: hw.assignedBy?.toString(),
         assignedByRole: hw.assignedByRole,
         toDate: hw.toDate,
@@ -333,8 +416,152 @@ exports.getHomework = async (req, res) => {
       const userHomeworkCount = await Homework.countDocuments({ assignedBy: req.user.id });
       console.log(`📊 Total homework assigned by this staff member: ${userHomeworkCount}`);
       
+      // Debug: Check with different ObjectId formats
+      const userHomeworkCountString = await Homework.countDocuments({ assignedBy: req.user.id.toString() });
+      const userHomeworkCountObjectId = await Homework.countDocuments({ assignedBy: new mongoose.Types.ObjectId(req.user.id) });
+      console.log(`📊 Homework count with string ID: ${userHomeworkCountString}`);
+      console.log(`📊 Homework count with ObjectId: ${userHomeworkCountObjectId}`);
+      
+      // Debug: Check what the actual assignedBy values are in the database
+      console.log('🔍 Current user ID:', req.user.id.toString());
+      console.log('🔍 Current user ID type:', typeof req.user.id);
+      
+      // Debug: Check homework by subject to see if there's cross-subject visibility
+      const physicsHomework = await Homework.countDocuments({ subject: 'Physics' });
+      const chemistryHomework = await Homework.countDocuments({ subject: 'Chemistry' });
+      const mathHomework = await Homework.countDocuments({ subject: 'Mathematics' });
+      console.log('📊 Homework by subject: Physics:', physicsHomework, 'Chemistry:', chemistryHomework, 'Math:', mathHomework);
+      
+      // Debug: Check management-created homework specifically
+      const managementHomework = await Homework.find({ 
+        assignedByRole: 'management' 
+      });
+      console.log('🔍 MANAGEMENT-CREATED HOMEWORK:', managementHomework.length);
+      if (managementHomework.length > 0) {
+        console.log('📋 Management homework details:');
+        managementHomework.forEach(hw => {
+          console.log(`  - ${hw.title} (${hw.subject}) - TargetAudience: ${hw.targetAudience} - AssignedToStaff: ${hw.assignedToStaff?.toString() || 'NOT SET'}`);
+        });
+      }
+      
+      // Debug: Check homework with targetAudience staff/both
+      const staffHomework = await Homework.find({ 
+        targetAudience: { $in: ['staff', 'both'] } 
+      });
+      console.log('🔍 HOMEWORK WITH TARGET AUDIENCE STAFF/BOTH:', staffHomework.length);
+      if (staffHomework.length > 0) {
+        console.log('📋 Staff-targeted homework details:');
+        staffHomework.forEach(hw => {
+          console.log(`  - ${hw.title} (${hw.subject}) - Created by: ${hw.assignedByRole || 'unknown'} - TargetAudience: ${hw.targetAudience} - AssignedToStaff: ${hw.assignedToStaff?.toString() || 'NOT SET'}`);
+        });
+      }
+      
+      // Test query without date filter to see if that's the issue
+      const testQueryWithoutDate = { 
+        $or: [
+          { assignedBy: new mongoose.Types.ObjectId(req.user.id) },
+          { assignedBy: req.user.id.toString() },
+          { assignedBy: req.user.id }
+        ]
+      };
+      const homeworkWithoutDateFilter = await Homework.find(testQueryWithoutDate);
+      console.log('🔍 TEST: Homework found WITHOUT date filter:', homeworkWithoutDateFilter.length);
+      if (homeworkWithoutDateFilter.length > 0) {
+        console.log('📋 TEST: Homework without date filter:', homeworkWithoutDateFilter.map(hw => ({
+          title: hw.title,
+          subject: hw.subject,
+          assignedBy: hw.assignedBy?.toString(),
+          toDate: hw.toDate
+        })));
+      }
+      
+      // CRITICAL DEBUG: Test if query is returning ALL homework instead of filtered
+      const allHomeworkTest = await Homework.find({});
+      console.log('🔍 CRITICAL: Total homework in database:', allHomeworkTest.length);
+      
+      // Show ALL homework with details
+      console.log('🔍 CRITICAL: ALL HOMEWORK IN DATABASE:');
+      allHomeworkTest.forEach((hw, index) => {
+        console.log(`  ${index + 1}. ${hw.title} (${hw.subject}) - Created by: ${hw.assignedBy?.toString()} - Teacher: ${hw.teacherName}`);
+      });
+      
+      // Check what assignedBy values exist in the database
+      const allAssignedByValues = await Homework.distinct('assignedBy');
+      console.log('🔍 CRITICAL: All assignedBy values in database:', allAssignedByValues.map(id => id?.toString()));
+      console.log('🔍 CRITICAL: Current user ID:', req.user.id.toString());
+      
+      // Test simple query
+      const simpleQueryResult = await Homework.find({ assignedBy: req.user.id });
+      console.log('🔍 CRITICAL: Homework found with simple query:', simpleQueryResult.length);
+      
+      if (simpleQueryResult.length > 0) {
+        console.log('🔍 CRITICAL: Homework created by this user:');
+        simpleQueryResult.forEach(hw => {
+          console.log(`  - ${hw.title} (${hw.subject})`);
+        });
+      }
+      
+      // Test homework assigned to this staff member
+      const assignedToStaffResult = await Homework.find({ 
+        targetAudience: { $in: ['staff', 'both'] },
+        assignedToStaff: req.user.id 
+      });
+      console.log('🔍 CRITICAL: Homework specifically assigned to this staff:', assignedToStaffResult.length);
+      
+      if (assignedToStaffResult.length > 0) {
+        console.log('🔍 CRITICAL: Homework assigned to this staff:');
+        assignedToStaffResult.forEach(hw => {
+          console.log(`  - ${hw.title} (${hw.subject}) - Assigned by: ${hw.assignedBy?.toString()}`);
+        });
+      }
+      
+      // Test ALL homework with targetAudience staff/both to see what exists
+      const allStaffHomework = await Homework.find({ 
+        targetAudience: { $in: ['staff', 'both'] }
+      });
+      console.log('🔍 CRITICAL: ALL homework with targetAudience staff/both:', allStaffHomework.length);
+      
+      if (allStaffHomework.length > 0) {
+        console.log('🔍 CRITICAL: All staff homework in database:');
+        allStaffHomework.forEach(hw => {
+          console.log(`  - ${hw.title} (${hw.subject}) - TargetAudience: ${hw.targetAudience} - AssignedToStaff: ${hw.assignedToStaff?.toString() || 'NOT SET'} - AssignedBy: ${hw.assignedBy?.toString()}`);
+        });
+      }
+      
+      // Test the actual staff query without date filter
+      const testStaffQueryWithoutDate = { 
+        $or: [
+          { assignedBy: req.user.id },
+          { 
+            targetAudience: { $in: ['staff', 'both'] },
+            subject: userSubject
+          },
+          {
+            assignedByRole: 'management',
+            targetAudience: { $in: ['staff', 'both'] },
+            subject: userSubject
+          }
+        ]
+      };
+      const staffHomeworkWithoutDateFilter = await Homework.find(testStaffQueryWithoutDate);
+      console.log('🔍 TEST: Staff homework found WITHOUT date filter:', staffHomeworkWithoutDateFilter.length);
+      if (staffHomeworkWithoutDateFilter.length > 0) {
+        console.log('📋 TEST: Staff homework without date filter:');
+        staffHomeworkWithoutDateFilter.forEach(hw => {
+          console.log(`  - ${hw.title} (${hw.subject}) - Created by: ${hw.assignedByRole || 'unknown'} - TargetAudience: ${hw.targetAudience} - Due: ${hw.toDate}`);
+        });
+      }
+      
+      if (simpleQueryResult.length === 0) {
+        console.log('🚨 CRITICAL ISSUE: No homework found for this user!');
+        console.log('🚨 This means either:');
+        console.log('   1. This user has not created any homework yet');
+        console.log('   2. The assignedBy field is not set correctly');
+        console.log('   3. The user ID format is different');
+      }
+      
     } else if (req.user.role === 'management') {
-      // Management see homework for 1 week after creation date
+      // Management see ALL homework created by any teacher/management for 1 week after creation date
       const today = new Date(actualToday);
       const oneWeekAgo = new Date(today);
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -342,47 +569,120 @@ exports.getHomework = async (req, res) => {
                               String(oneWeekAgo.getMonth() + 1).padStart(2, '0') + '-' + 
                               String(oneWeekAgo.getDate()).padStart(2, '0');
       
-      const userDepartment = req.user.department || 'Administration';
+      // Management can see ALL homework created by staff/management in the last week
       query = { 
         $or: [
-          { assignedBy: req.user.id },
-          { targetAudience: { $in: ['staff', 'both'] }, assignedDepartment: userDepartment }
+          // New homework with assignedByRole field
+          { assignedByRole: { $in: ['staff', 'management'] } },
+          // Old homework without assignedByRole field
+          { assignedByRole: { $exists: false }, assignedBy: { $exists: true } }
         ],
         // Only show homework created within the last week
         assignedDate: { $gte: oneWeekAgoString }
       };
-      console.log('👔 Management query (1 week from creation):', query);
+      
+      console.log('👔 Management query (ALL homework for 1 week):', query);
       console.log('📅 Showing homework created since:', oneWeekAgoString);
     }
     
     homework = await Homework.find(query).sort({ toDate: 1 });
     console.log(`📋 Found ${homework.length} homework items for ${req.user.role} user`);
     
-    // Enhanced logging for staff to confirm they only see their assigned homework
-    if (req.user.role === 'staff') {
-      if (homework.length > 0) {
-        console.log('📝 Staff homework found:', homework.map(hw => ({
+    // Debug: Show exactly what homework was found and why
+    if (req.user.role === 'staff' && homework.length > 0) {
+      const userDepartment = req.user.department || req.user.subject || 'General';
+      console.log('🔍 DEBUG: Homework found for staff - checking why:');
+      homework.forEach((hw, index) => {
+        console.log(`📋 Homework ${index + 1}:`);
+        console.log(`  Title: ${hw.title}`);
+        console.log(`  Subject: ${hw.subject}`);
+        console.log(`  Teacher: ${hw.teacherName}`);
+        console.log(`  AssignedBy: ${hw.assignedBy?.toString()}`);
+        console.log(`  AssignedToStaff: ${hw.assignedToStaff?.toString()}`);
+        console.log(`  TargetAudience: ${hw.targetAudience}`);
+        console.log(`  AssignedDepartment: ${hw.assignedDepartment}`);
+        console.log(`  Current User ID: ${req.user.id.toString()}`);
+        console.log(`  Created by me: ${hw.assignedBy?.toString() === req.user.id.toString()}`);
+        console.log(`  Specifically assigned to me: ${hw.assignedToStaff?.toString() === req.user.id.toString()}`);
+        console.log(`  Department match: ${hw.assignedDepartment === userDepartment}`);
+        console.log(`  Due Date: ${hw.toDate}`);
+        console.log(`  Not Past Due: ${hw.toDate >= actualToday}`);
+      });
+    }
+    
+    // Enhanced logging for each role
+    if (homework.length > 0) {
+      if (req.user.role === 'staff') {
+        const userDepartment = req.user.department || req.user.subject || 'General';
+        console.log('📝 STAFF HOMEWORK SUMMARY:');
+        console.log('✅ Showing homework created by me + homework assigned to me');
+        
+        if (homework.length > 0) {
+          const userSubject = req.user.subject || 'General'; // Define userSubject in this scope
+          // Separate homework they created vs homework assigned to staff (matching their subject)
+          const createdByMe = homework.filter(hw => hw.assignedBy && hw.assignedBy.toString() === req.user.id.toString());
+          const assignedToStaff = homework.filter(hw => 
+            hw.assignedBy && hw.assignedBy.toString() !== req.user.id.toString() && 
+            (hw.targetAudience === 'staff' || hw.targetAudience === 'both') &&
+            hw.subject === userSubject
+          );
+          
+          if (createdByMe.length > 0) {
+            console.log('✏️ Homework I CREATED:', createdByMe.map(hw => ({
+              title: hw.title,
+              subject: hw.subject,
+              targetAudience: hw.targetAudience,
+              assignedClass: hw.assignedClass,
+              assignedSection: hw.assignedSection,
+              dueDate: hw.toDate
+            })));
+          }
+          
+          if (assignedToStaff.length > 0) {
+            console.log('📥 Homework assigned to STAFF by management (matching subject):', assignedToStaff.map(hw => ({
+              title: hw.title,
+              subject: hw.subject,
+              teacherName: hw.teacherName,
+              targetAudience: hw.targetAudience,
+              assignedToStaff: hw.assignedToStaff?.toString() || 'NOT SET',
+              dueDate: hw.toDate
+            })));
+          }
+          
+          console.log(`📊 Total: ${createdByMe.length} created by me + ${assignedToStaff.length} assigned to staff (matching subject) = ${homework.length} total`);
+        } else {
+          console.log('⚠️ No homework found for this staff member');
+        }
+        
+      } else if (req.user.role === 'student') {
+        console.log('📝 STUDENT HOMEWORK SUMMARY:');
+        console.log('📚 Class:', req.user.assignedClass || '10', 'Section:', req.user.assignedSection || 'A');
+        
+        if (homework.length > 0) {
+          console.log('📋 Homework assigned to this student:', homework.map(hw => ({
+            title: hw.title,
+            subject: hw.subject,
+            teacher: hw.teacherName,
+            targetAudience: hw.targetAudience,
+            assignedBy: hw.assignedByRole || 'unknown',
+            dueDate: hw.toDate,
+            createdByStaff: hw.assignedByRole === 'staff',
+            createdByManagement: hw.assignedByRole === 'management'
+          })));
+        } else {
+          console.log('⚠️ No homework found for this student');
+          console.log('🔍 Make sure homework is assigned to Class:', req.user.assignedClass || '10', 'Section:', req.user.assignedSection || 'A');
+        }
+        
+       } else {
+        console.log('📝 Homework summary:', homework.map(hw => ({
           title: hw.title,
-          assignedBy: hw.assignedBy?.toString(),
           subject: hw.subject,
-          targetAudience: hw.targetAudience
+          targetAudience: hw.targetAudience,
+          teacher: hw.teacherName,
+          dueDate: hw.toDate
         })));
-      } else {
-        console.log('⚠️ No homework found for this staff member');
-        console.log('🔍 Debugging: Let\'s check if homework exists with different ObjectId format...');
-        
-        // Try alternative query methods
-        const mongoose = require('mongoose');
-        const alternativeQuery1 = { assignedBy: new mongoose.Types.ObjectId(req.user.id) };
-        const alternativeQuery2 = { assignedBy: req.user.id.toString() };
-        
-        const alt1Results = await Homework.countDocuments(alternativeQuery1);
-        const alt2Results = await Homework.countDocuments(alternativeQuery2);
-        
-        console.log('🔍 Alternative query 1 (ObjectId):', alt1Results, 'results');
-        console.log('🔍 Alternative query 2 (String):', alt2Results, 'results');
       }
-      console.log('🎯 Staff member ID being searched:', req.user.id);
     }
 
     // Add user submission status
@@ -396,7 +696,20 @@ exports.getHomework = async (req, res) => {
     });
 
     console.log('✅ Sending homework response with', homework.length, 'items');
-    res.json({ success: true, data: homework });
+    res.json({ 
+      success: true, 
+      data: homework,
+      user: {
+        id: req.user.id,
+        role: req.user.role,
+        name: req.user.name,
+        email: req.user.email,
+        subject: req.user.subject,
+        department: req.user.department,
+        assignedClass: req.user.assignedClass,
+        assignedSection: req.user.assignedSection
+      }
+    });
   } catch (error) {
     console.error('❌ Error getting homework:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });

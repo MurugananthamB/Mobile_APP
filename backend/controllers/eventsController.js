@@ -4,47 +4,14 @@ const Event = require('../models/events');
 // Get all events
 exports.getEvents = async (req, res) => {
   try {
-    let events = await Event.find({ isRegistrationOpen: true }).sort({ date: 1 });
+    console.log('🎯 Get Events Request Received');
+    console.log('👤 User:', req.user);
     
-    if (events.length === 0) {
-      // Create default events
-      const defaultEvents = [
-        {
-          title: 'Annual Sports Day',
-          description: 'Join us for a day filled with exciting sports competitions, team events, and athletic performances.',
-          category: 'Sports',
-          date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
-          startTime: '9:00 AM',
-          endTime: '4:00 PM',
-          venue: 'School Ground',
-          maxAttendees: 300,
-          currentAttendees: 250,
-          registrationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-          organizer: 'Sports Department',
-          requirements: ['Sports uniform', 'Water bottle', 'Medical certificate'],
-          prizes: ['Trophies for winners', 'Certificates for all participants']
-        },
-        {
-          title: 'Science Exhibition',
-          description: 'Showcase your innovative science projects and experiments.',
-          category: 'Academic',
-          date: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
-          startTime: '10:00 AM',
-          endTime: '3:00 PM',
-          venue: 'Science Laboratory',
-          maxAttendees: 150,
-          currentAttendees: 120,
-          registrationDeadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-          organizer: 'Science Department'
-        }
-      ];
-
-      await Event.insertMany(defaultEvents);
-      events = await Event.find({ isRegistrationOpen: true }).sort({ date: 1 });
-    }
+    const events = await Event.find({ isRegistrationOpen: true }).sort({ date: 1 });
+    console.log('📊 Found events:', events.length);
 
     // Add user registration status
-    events = events.map(event => {
+    const eventsWithRegistration = events.map(event => {
       const userRegistration = event.registeredUsers.find(reg => reg.userId.toString() === req.user.id);
       return {
         ...event.toObject(),
@@ -53,8 +20,159 @@ exports.getEvents = async (req, res) => {
       };
     });
 
-    res.json({ success: true, data: events });
+    console.log('✅ Sending events response:', {
+      success: true,
+      count: eventsWithRegistration.length,
+      events: eventsWithRegistration.map(e => ({ title: e.title, category: e.category, date: e.date }))
+    });
+
+    res.json({ success: true, data: eventsWithRegistration });
   } catch (error) {
+    console.error('❌ Error getting events:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// Create new event
+exports.createEvent = async (req, res) => {
+  try {
+    console.log('🎯 Create Event Request Received');
+    console.log('👤 User:', req.user);
+    console.log('📝 Request Body:', req.body);
+    
+    // Check if user has permission to create events (management or staff)
+    if (req.user.role !== 'management' && req.user.role !== 'staff') {
+      console.log('❌ Permission denied - User role:', req.user.role);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only management and staff can create events' 
+      });
+    }
+
+    const {
+      title,
+      description,
+      category,
+      date,
+      startTime,
+      endTime,
+      venue,
+      validityDate,
+      organizer,
+      requirements,
+      prizes
+    } = req.body;
+
+    // Validate required fields
+    console.log('🔍 Validating required fields...');
+    console.log('Title:', !!title);
+    console.log('Description:', !!description);
+    console.log('Category:', !!category);
+    console.log('Date:', !!date);
+    console.log('StartTime:', !!startTime);
+    console.log('EndTime:', !!endTime);
+    console.log('Venue:', !!venue);
+    console.log('ValidityDate:', !!validityDate);
+    
+    if (!title || !description || !category || !date || !startTime || !endTime || !venue || !validityDate) {
+      console.log('❌ Validation failed - missing required fields');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide all required fields' 
+      });
+    }
+
+    // Validate dates
+    console.log('📅 Date validation...');
+    console.log('Raw date:', date);
+    console.log('Raw validityDate:', validityDate);
+    
+    const eventDate = new Date(date);
+    const validity = new Date(validityDate);
+    const today = new Date();
+    
+    console.log('Parsed eventDate:', eventDate);
+    console.log('Parsed validity:', validity);
+    console.log('Today:', today);
+    console.log('EventDate valid:', !isNaN(eventDate.getTime()));
+    console.log('Validity valid:', !isNaN(validity.getTime()));
+
+    if (isNaN(eventDate.getTime())) {
+      console.log('❌ Invalid event date format');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid event date format. Please use YYYY-MM-DD' 
+      });
+    }
+
+    if (isNaN(validity.getTime())) {
+      console.log('❌ Invalid validity date format');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid validity date format. Please use YYYY-MM-DD' 
+      });
+    }
+
+    if (eventDate <= today) {
+      console.log('❌ Event date is not in the future');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Event date must be in the future' 
+      });
+    }
+
+    if (validity <= today) {
+      console.log('❌ Validity date is not in the future');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validity date must be in the future' 
+      });
+    }
+
+    if (validity > eventDate) {
+      console.log('❌ Validity date is after event date');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validity date cannot be after the event date' 
+      });
+    }
+
+    // Create new event
+    const newEvent = new Event({
+      title,
+      description,
+      category,
+      date: eventDate,
+      startTime,
+      endTime,
+      venue,
+      currentAttendees: 0,
+      validityDate: validity,
+      organizer: organizer || `${req.user.name} (${req.user.role})`,
+      requirements: requirements || [],
+      prizes: prizes || [],
+      isRegistrationOpen: true,
+      registeredUsers: []
+    });
+
+    await newEvent.save();
+
+    console.log('✅ Event created successfully:', {
+      title: newEvent.title,
+      category: newEvent.category,
+      date: newEvent.date,
+      validityDate: newEvent.validityDate,
+      createdBy: req.user.name,
+      userRole: req.user.role
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Event created successfully',
+      data: newEvent
+    });
+  } catch (error) {
+    console.error('❌ Error creating event:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
@@ -99,14 +217,11 @@ exports.registerForEvent = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Already registered for this event' });
     }
 
-    // Check capacity
-    if (event.currentAttendees >= event.maxAttendees) {
-      return res.status(400).json({ success: false, message: 'Event is full' });
-    }
+
 
     // Check registration deadline
-    if (new Date() > event.registrationDeadline) {
-      return res.status(400).json({ success: false, message: 'Registration deadline has passed' });
+    if (new Date() > event.validityDate) {
+      return res.status(400).json({ success: false, message: 'Registration validity date has passed' });
     }
 
     // Register user
@@ -125,6 +240,49 @@ exports.registerForEvent = async (req, res) => {
       data: event
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+}; 
+
+// Clear all events (for testing/cleanup)
+exports.clearAllEvents = async (req, res) => {
+  try {
+    console.log('🗑️ Clear All Events Request Received');
+    console.log('👤 User:', req.user);
+    
+    // Check if user has permission (management only)
+    if (req.user.role !== 'management') {
+      console.log('❌ Permission denied - User role:', req.user.role);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only management can clear all events' 
+      });
+    }
+
+    // Get count before deletion
+    const eventCount = await Event.countDocuments();
+    console.log(`📊 Found ${eventCount} events to delete`);
+
+    // Delete all events
+    const result = await Event.deleteMany({});
+    
+    console.log('✅ Events cleared successfully:', {
+      deletedCount: result.deletedCount,
+      totalEvents: eventCount,
+      clearedBy: req.user.name,
+      userRole: req.user.role
+    });
+
+    res.json({ 
+      success: true, 
+      message: `Successfully cleared ${result.deletedCount} events`,
+      data: {
+        deletedCount: result.deletedCount,
+        totalEvents: eventCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error clearing events:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 }; 

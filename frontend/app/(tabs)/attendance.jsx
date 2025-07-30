@@ -2,9 +2,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { AntDesign } from '@expo/vector-icons';
 
 export default function AttendanceScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const router = useRouter();
 
   const attendanceData = {
     totalDays: 22,
@@ -96,15 +99,15 @@ export default function AttendanceScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Calendar size={24} color="#1e40af" />
-            <Text style={styles.headerTitle}>Attendance</Text>
-          </View>
-        </View>
+      {/* Custom Header */}
+      <View style={styles.customHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <AntDesign name="arrowleft" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Attendance</Text>
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Attendance Summary */}
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
@@ -166,7 +169,7 @@ export default function AttendanceScreen() {
 
               return (
                 <TouchableOpacity key={index} style={styles.calendarDay}>
-                  <Text style={styles.dayNumber}>{day}</Text>
+                  <Text style={[styles.dayNumber, status !== 'none' && styles.dayNumberWithStatus]}>{day}</Text>
                   {status !== 'none' && (
                     <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
                       <Text style={styles.statusText}>{statusText}</Text>
@@ -203,12 +206,29 @@ export default function AttendanceScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    marginRight: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2937',
   },
   header: {
     paddingHorizontal: 20,
@@ -220,12 +240,6 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginLeft: 10,
   },
   summaryContainer: {
     margin: 20,

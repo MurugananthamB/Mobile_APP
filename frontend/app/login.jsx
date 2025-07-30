@@ -1,27 +1,40 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { router } from 'expo-router';
+import ApiService from '../services/api';
 
 export default function LoginScreen() {
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!studentId || !password) {
       Alert.alert('Error', 'Please enter both Student ID and Password');
       return;
     }
 
-    // Simple demo authentication
-    if (studentId === 'ST2023001' && password === 'password123') {
+    setIsLoading(true);
+
+    try {
+      const response = await ApiService.login(studentId, password);
+      
+      // Redirect to home page immediately on successful login
       router.replace('/(tabs)');
-    } else {
-      Alert.alert('Error', 'Invalid Student ID or Password');
+      
+    } catch (error) {
+      Alert.alert(
+        'Login Failed',
+        error.message || 'Invalid credentials. Please check your Student ID and Password.',
+        [{ text: 'Try Again' }]
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -36,32 +49,35 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#1e40af', '#3b82f6', '#60a5fa']}
+        colors={['#e69138','#dc207d','#f1c232']}
         style={styles.gradient}
       >
         <View style={styles.content}>
           {/* Logo and Title */}
           <View style={styles.logoContainer}>
             <Image
-              source={{ uri: 'https://images.pexels.com/photos/289740/pexels-photo-289740.jpeg?auto=compress&cs=tinysrgb&w=400' }}
+              source={require('../assets/images/logo.jpeg')}
               style={styles.logo}
             />
-            <Text style={styles.title}>Smart School</Text>
-            <Text style={styles.subtitle}>Student Portal</Text>
+            <Text style={styles.schoolName}>GBPS School App</Text>
           </View>
 
           {/* Login Form */}
           <View style={styles.formContainer}>
+            <Text style={styles.formTitle}>Welcome Back</Text>
+            <Text style={styles.formSubtitle}>Sign in to your account</Text>
+
             <View style={styles.inputContainer}>
               <User size={20} color="#6b7280" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Student ID"
+                placeholder="userid"
                 placeholderTextColor="#9ca3af"
                 value={studentId}
                 onChangeText={setStudentId}
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
             </View>
 
@@ -76,60 +92,79 @@ export default function LoginScreen() {
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
-              <TouchableOpacity
-                style={styles.eyeIcon}
+              <TouchableOpacity 
                 onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                disabled={isLoading}
               >
-                {showPassword ? (
-                  <EyeOff size={20} color="#6b7280" />
-                ) : (
+                {showPassword ? 
+                  <EyeOff size={20} color="#6b7280" /> : 
                   <Eye size={20} color="#6b7280" />
-                )}
+                }
               </TouchableOpacity>
             </View>
 
             {/* Remember Me */}
             <View style={styles.rememberContainer}>
-              <TouchableOpacity
-                style={styles.rememberButton}
+              <TouchableOpacity 
                 onPress={() => setRememberMe(!rememberMe)}
+                style={styles.checkboxContainer}
+                disabled={isLoading}
               >
                 <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
                   {rememberMe && <Text style={styles.checkmark}>✓</Text>}
                 </View>
-                <Text style={styles.rememberText}>Remember Me</Text>
+                <Text style={styles.rememberText}>Remember me</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={handleForgotPassword}
+                disabled={isLoading}
+              >
+                <Text style={styles.forgotText}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
             {/* Login Button */}
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <TouchableOpacity 
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
               <LinearGradient
-                colors={['#1e40af', '#3b82f6']}
+                colors={isLoading ? ['#9ca3af', '#6b7280'] : ['#1e40af', '#3b82f6']}
                 style={styles.loginGradient}
               >
-                <Text style={styles.loginButtonText}>Login</Text>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#ffffff" />
+                    <Text style={styles.loginButtonText}>Signing In...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.loginButtonText}>Sign In</Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotButton} onPress={handleForgotPassword}>
-              <Text style={styles.forgotButtonText}>Forgot Password?</Text>
+            {/* Register Link */}
+            <TouchableOpacity 
+              style={styles.registerLink} 
+              onPress={() => router.push('/register')}
+              disabled={isLoading}
+            >
+              <Text style={styles.registerText}>
+                Don't have an account? <Text style={styles.registerTextBold}>Sign Up</Text>
+              </Text>
             </TouchableOpacity>
-          </View>
 
-          {/* Demo Credentials */}
-          <View style={styles.demoContainer}>
-            <Text style={styles.demoTitle}>Demo Credentials</Text>
-            <Text style={styles.demoText}>Student ID: ST2023001</Text>
-            <Text style={styles.demoText}>Password: password123</Text>
-          </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              © 2024 Smart School. All rights reserved.
-            </Text>
+            {/* Demo Credentials */}
+            <View style={styles.demoContainer}>
+              <Text style={styles.demoTitle}>Demo Credentials</Text>
+              <Text style={styles.demoText}>Try: Any userid and password</Text>
+              <Text style={styles.demoText}>Backend will create user if not exists</Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
@@ -154,23 +189,16 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 20,
-    borderWidth: 3,
-    borderColor: '#ffffff',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
   },
-  title: {
-    fontSize: 32,
+  schoolName: {
+    fontSize: 24,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#e2e8f0',
-    fontWeight: '500',
+    textAlign: 'center',
   },
   formContainer: {
     backgroundColor: '#ffffff',
@@ -181,6 +209,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+  },
+  formTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  formSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 30,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -205,19 +246,22 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   rememberContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 25,
   },
-  rememberButton: {
+  checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: '#d1d5db',
-    marginRight: 10,
+    marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -234,53 +278,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
+  forgotText: {
+    fontSize: 14,
+    color: '#1e40af',
+    fontWeight: '600',
+  },
   loginButton: {
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 20,
   },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
   loginGradient: {
     paddingVertical: 15,
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   loginButtonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
+    marginLeft: 10,
   },
-  forgotButton: {
+  registerLink: {
     alignItems: 'center',
+    marginBottom: 20,
   },
-  forgotButtonText: {
+  registerText: {
     fontSize: 14,
-    color: '#1e40af',
+    color: '#6b7280',
+  },
+  registerTextBold: {
     fontWeight: '600',
+    color: '#1e40af',
   },
   demoContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#f1f5f9',
     borderRadius: 12,
     padding: 15,
-    marginTop: 30,
     alignItems: 'center',
   },
   demoTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1e40af',
     marginBottom: 8,
   },
   demoText: {
     fontSize: 12,
-    color: '#e2e8f0',
+    color: '#6b7280',
     marginBottom: 2,
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#e2e8f0',
     textAlign: 'center',
   },
 });

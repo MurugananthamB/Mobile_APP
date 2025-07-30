@@ -113,14 +113,6 @@ export default function TimetableScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Clock size={24} color="#1e40af" />
-            <Text style={styles.headerTitle}>Timetable</Text>
-          </View>
-        </View>
-
         {/* Week Navigation */}
         <View style={styles.weekNavigation}>
           <TouchableOpacity onPress={() => navigateWeek(-1)} style={styles.navButton}>
@@ -229,23 +221,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginLeft: 10,
   },
   weekNavigation: {
     flexDirection: 'row',

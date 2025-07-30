@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
-import { FileText, TrendingUp, Award, ChartBar as BarChart3, ChevronDown } from 'lucide-react-native';
+import { FileText, TrendingUp, Award, BarChart3, ChevronDown } from 'lucide-react-native';
 
 export default function ResultsScreen() {
   const [selectedTerm, setSelectedTerm] = useState('midterm');
@@ -168,6 +168,8 @@ export default function ResultsScreen() {
                 </Text>
                 <Text style={styles.summaryStatLabel}>Percentage</Text>
               </View>
+            
+
             </View>
           </View>
         </View>
@@ -244,6 +246,8 @@ export default function ResultsScreen() {
                   </View>
                 );
               })}
+            
+
             </View>
           </View>
         </View>

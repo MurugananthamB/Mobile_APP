@@ -53,7 +53,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="notices"
         options={{
-          title: 'Notices',
+          title: 'Circular',
           tabBarIcon: ({ color }) => <TabIcon IconComponent={Bell} color={color} />,
         }}
       />

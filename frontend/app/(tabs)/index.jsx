@@ -21,7 +21,6 @@ export default function HomeScreen() {
   ];
 
   const recentActivities = [
-    { title: 'New circular about sports day', time: '2 hours ago', type: 'notice' },
     { title: 'Math assignment submitted', time: '1 day ago', type: 'assignment' },
     { title: 'Fee payment reminder', time: '2 days ago', type: 'fee' },
   ];

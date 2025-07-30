@@ -60,6 +60,49 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Contact information
+  phone: {
+    type: String,
+    default: null
+  },
+  address: {
+    type: String,
+    default: null
+  },
+  // Student-specific fields
+  rollNo: {
+    type: String,
+    default: null
+  },
+  assignedClass: {
+    type: String,
+    default: null
+  },
+  assignedSection: {
+    type: String,
+    default: null
+  },
+  dateOfBirth: {
+    type: String,
+    default: null
+  },
+  bloodGroup: {
+    type: String,
+    default: null
+  },
+  // Parent information (for students)
+  parentName: {
+    type: String,
+    default: null
+  },
+  parentPhone: {
+    type: String,
+    default: null
+  },
+  emergencyContact: {
+    type: String,
+    default: null
+  },
   isActive: {
     type: Boolean,
     default: true

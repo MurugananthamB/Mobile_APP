@@ -44,6 +44,28 @@ export const isStaff = (userData) => {
 };
 
 /**
+ * Check if user can add homework
+ * @param {object} userData - User data object with role property
+ * @returns {boolean} - True if user can add homework
+ */
+export const canAddHomework = (userData) => {
+  if (!userData || !userData.role) return false;
+  const userRole = userData.role.toLowerCase();
+  return userRole === 'management' || userRole === 'staff';
+};
+
+/**
+ * Check if user can add notices
+ * @param {object} userData - User data object with role property
+ * @returns {boolean} - True if user can add notices
+ */
+export const canAddNotice = (userData) => {
+  if (!userData || !userData.role) return false;
+  const userRole = userData.role.toLowerCase();
+  return userRole === 'management' || userRole === 'staff';
+};
+
+/**
  * Get user role display name
  * @param {object} userData - User data object with role property
  * @returns {string} - Formatted role name

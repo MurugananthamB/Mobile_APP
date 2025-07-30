@@ -1,5 +1,6 @@
 // services/api.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Base URL for your backend
 // For React Native, use your computer's IP address instead of localhost
@@ -112,6 +113,138 @@ class ApiService {
 
   async getProfile() {
     return await this.makeRequest('/protected/profile');
+  }
+
+  async updateProfile(profileData) {
+    return await this.makeRequest('/protected/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  }
+
+  // Upload profile image
+  async uploadProfileImage(imageUri) {
+    try {
+      console.log('📤 Starting image upload...');
+      console.log('📤 Image URI:', imageUri);
+      console.log('📤 Image URI type:', typeof imageUri);
+      console.log('📤 Platform:', Platform.OS);
+      
+      // Validate image URI
+      if (!imageUri) {
+        throw new Error('No image URI provided');
+      }
+
+      const formData = new FormData();
+      
+      // Platform-specific file handling
+      if (Platform.OS === 'web') {
+        console.log('📤 Web platform detected, handling file upload');
+        
+        try {
+          // For web, we need to fetch the file from the blob URL
+          console.log('📤 Fetching blob from URI:', imageUri);
+          const response = await fetch(imageUri);
+          console.log('📤 Fetch response status:', response.status);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch blob: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          console.log('📤 Blob created:', {
+            size: blob.size,
+            type: blob.type
+          });
+          
+          const imageFile = new File([blob], 'profile-image.jpg', { type: 'image/jpeg' });
+          console.log('📤 Web file created:', {
+            name: imageFile.name,
+            size: imageFile.size,
+            type: imageFile.type
+          });
+          
+          formData.append('profileImage', imageFile);
+          console.log('📤 FormData appended with web file');
+        } catch (webError) {
+          console.error('❌ Web file processing error:', webError);
+          throw new Error(`Failed to process web file: ${webError.message}`);
+        }
+      } else {
+        // Mobile platform
+        const imageFile = {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: 'profile-image.jpg',
+        };
+        
+        console.log('📤 Mobile image file object:', imageFile);
+        formData.append('profileImage', imageFile);
+      }
+
+      console.log('📤 FormData created');
+      console.log('📤 FormData entries count:', formData._parts ? formData._parts.length : 'Unknown');
+      
+      // Debug FormData contents
+      if (formData._parts) {
+        console.log('📤 FormData parts:', formData._parts);
+      }
+
+      const token = await this.getStoredToken();
+      console.log('🔑 Token available for upload:', !!token);
+      console.log('🔑 Token length:', token ? token.length : 0);
+      
+      const uploadUrl = `${this.baseURL}/protected/profile/image`;
+      console.log('📤 Upload URL:', uploadUrl);
+
+      const requestConfig = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Remove Content-Type header for FormData
+        },
+        body: formData,
+      };
+
+      console.log('📤 Request config:', {
+        method: requestConfig.method,
+        headers: requestConfig.headers,
+        hasBody: !!requestConfig.body
+      });
+
+      const response = await fetch(uploadUrl, requestConfig);
+
+      console.log('📤 Upload response status:', response.status);
+      console.log('📤 Upload response status text:', response.statusText);
+      console.log('📤 Upload response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.log('❌ Could not parse error response as JSON');
+          const textResponse = await response.text();
+          console.log('❌ Text response:', textResponse);
+          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        
+        console.error('❌ Upload failed:', errorData);
+        throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Upload successful:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      console.error('❌ Upload error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
   }
 
   // =============== FEES METHODS ===============
@@ -236,6 +369,13 @@ class ApiService {
   async markNoticeAsRead(noticeId) {
     return await this.makeRequest(`/notices/${noticeId}/read`, {
       method: 'PUT',
+    });
+  }
+
+  async createNotice(noticeData) {
+    return await this.makeRequest('/notices', {
+      method: 'POST',
+      body: JSON.stringify(noticeData),
     });
   }
 

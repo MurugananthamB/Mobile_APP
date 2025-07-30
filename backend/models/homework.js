@@ -2,9 +2,11 @@
 const mongoose = require('mongoose');
 
 const attachmentSchema = new mongoose.Schema({
-  filename: String,
-  url: String,
+  name: String,
+  uri: String,
+  size: Number,
   type: String,
+  mimeType: String,
 });
 
 const homeworkSchema = new mongoose.Schema({

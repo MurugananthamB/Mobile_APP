@@ -163,7 +163,8 @@ exports.createHomework = async (req, res) => {
       targetAudience,
       assignedClass,
       assignedSection,
-      assignedDepartment 
+      assignedDepartment,
+      attachments 
     } = req.body;
 
     console.log('📋 Destructured fields:', {
@@ -240,7 +241,8 @@ exports.createHomework = async (req, res) => {
       status: 'pending',
       submissions: [],
       assignedBy: req.user.id,
-      assignedByRole: req.user.role
+      assignedByRole: req.user.role,
+      attachments: attachments || []
     };
 
     // Set target audience and assignments based on user role

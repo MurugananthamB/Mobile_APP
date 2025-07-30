@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Image, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Calendar, Clock, CheckCircle, Circle, FileText, Plus, AlertCircle, X, ChevronDown, Users, Building2, GraduationCap, Star, TrendingUp, Award, Bookmark } from 'lucide-react-native';
+import { BookOpen, Calendar, Clock, CheckCircle, Circle, FileText, Plus, AlertCircle, X, ChevronDown, Users, Building2, GraduationCap, Star, TrendingUp, Award, Bookmark, Search, Paperclip, File, Image as ImageIcon, Trash2, Download, ChevronLeft } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import ApiService from '../services/api';
+import { isManagement, canAddHomework } from '../utils/roleUtils';
 
 export default function HomeworkScreen() {
   const [homework, setHomework] = useState([]);
@@ -23,6 +28,13 @@ export default function HomeworkScreen() {
   const [showSectionPicker, setShowSectionPicker] = useState(false);
   const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
   
+  // Calendar and search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  
   const [newHomework, setNewHomework] = useState({
     title: '',
     description: '',
@@ -32,7 +44,8 @@ export default function HomeworkScreen() {
     targetAudience: 'students',
     assignedClass: '',
     assignedSection: '',
-    assignedDepartment: ''
+    assignedDepartment: '',
+    attachments: []
   });
 
   // Separate date input states
@@ -277,7 +290,8 @@ export default function HomeworkScreen() {
 
       const homeworkData = {
         ...newHomework,
-        toDate: toDateString
+        toDate: toDateString,
+        attachments: newHomework.attachments || []
       };
 
       console.log('🚀 Sending homework data to backend:', homeworkData);
@@ -287,7 +301,8 @@ export default function HomeworkScreen() {
         subject: homeworkData.subject,
         teacher: homeworkData.teacher,
         toDate: homeworkData.toDate,
-        targetAudience: homeworkData.targetAudience
+        targetAudience: homeworkData.targetAudience,
+        attachmentsCount: homeworkData.attachments.length
       });
 
       await ApiService.createHomework(homeworkData);
@@ -321,7 +336,8 @@ export default function HomeworkScreen() {
       targetAudience: userData?.role === 'management' ? 'students' : 'students',
       assignedClass: '',
       assignedSection: '',
-      assignedDepartment: ''
+      assignedDepartment: '',
+      attachments: []
     });
     setDateInput({
       day: '',
@@ -336,6 +352,160 @@ export default function HomeworkScreen() {
     setShowSectionPicker(false);
     setShowDepartmentPicker(false);
     setShowAddModal(false);
+  };
+
+  // Attachment handling functions
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'text/plain'
+        ],
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        
+        // Check file size (2MB = 2 * 1024 * 1024 bytes)
+        const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+        if (file.size > maxSize) {
+          Alert.alert(
+            'File Too Large', 
+            'Document size must be 2MB or less. Please select a smaller file.'
+          );
+          return;
+        }
+        
+        const attachment = {
+          name: file.name,
+          uri: file.uri,
+          size: file.size,
+          type: 'document',
+          mimeType: file.mimeType
+        };
+        
+        setNewHomework(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, attachment]
+        }));
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant permission to access your photo library');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const image = result.assets[0];
+        
+        // Check file size (2MB = 2 * 1024 * 1024 bytes)
+        const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+        if (image.fileSize > maxSize) {
+          Alert.alert(
+            'Image Too Large', 
+            'Image size must be 2MB or less. Please select a smaller image.'
+          );
+          return;
+        }
+        
+        const attachment = {
+          name: `image_${Date.now()}.jpg`,
+          uri: image.uri,
+          size: image.fileSize,
+          type: 'image',
+          mimeType: 'image/jpeg'
+        };
+        
+        setNewHomework(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, attachment]
+        }));
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const removeAttachment = (index) => {
+    setNewHomework(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }));
+  };
+
+  const downloadAttachment = async (attachment) => {
+    try {
+      Alert.alert('Downloading', 'Please wait while we download your file...');
+      
+      if (Platform.OS === 'web') {
+        // For web platform, open the file in a new tab or trigger download
+        const link = document.createElement('a');
+        link.href = attachment.uri;
+        link.download = attachment.name || `attachment_${Date.now()}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        Alert.alert('Download Complete', `File "${attachment.name}" download has been initiated.`);
+      } else {
+        // For mobile platforms, use expo-file-system and expo-sharing
+        const fileName = attachment.name || `attachment_${Date.now()}`;
+        const fileExtension = attachment.mimeType ? attachment.mimeType.split('/')[1] : 'pdf';
+        const fileUri = `${FileSystem.documentDirectory}${fileName}.${fileExtension}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(
+          attachment.uri,
+          fileUri
+        );
+        
+        if (downloadResult.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: attachment.mimeType || 'application/octet-stream',
+              dialogTitle: `Download ${attachment.name}`,
+              UTI: 'public.item'
+            });
+          } else {
+            Alert.alert(
+              'Download Complete', 
+              `File "${attachment.name}" has been downloaded to your device.`,
+              [{ text: 'OK' }]
+            );
+          }
+        } else {
+          Alert.alert('Download Failed', 'Unable to download the file. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Download Error', 'Failed to download the file. Please try again.');
+    }
   };
 
   const closeAddModal = () => {
@@ -360,7 +530,49 @@ export default function HomeworkScreen() {
     return userData?.role?.toLowerCase() === 'management';
   };
 
-  const pendingHomework = Array.isArray(homework) ? homework : [];
+  // Calendar helper functions
+  const getDaysInMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const formatMonthYear = (date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  const isSameDay = (date1, date2) => {
+    return date1.getDate() === date2.getDate() && 
+           date1.getMonth() === date2.getMonth() && 
+           date1.getFullYear() === date2.getFullYear();
+  };
+
+  // Filter homework based on search query and selected date
+  const filteredHomework = homework.filter(item => {
+    const homeworkDate = new Date(item.fromDate);
+    
+    // Filter by selected date if calendar is not showing
+    if (!showCalendar && !isSameDay(homeworkDate, selectedDate)) {
+      return false;
+    }
+    
+    // Filter by search query if provided
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        item.title.toLowerCase().includes(query) ||
+        item.subject.toLowerCase().includes(query) ||
+        (item.teacherName && item.teacherName.toLowerCase().includes(query)) ||
+        (item.teacher && item.teacher.toLowerCase().includes(query))
+      );
+    }
+    
+    return true;
+  });
+
+  const pendingHomework = Array.isArray(filteredHomework) ? filteredHomework : [];
 
   const renderHomeworkCard = (item) => (
     <View key={item._id} style={styles.homeworkCard}>
@@ -459,6 +671,41 @@ export default function HomeworkScreen() {
             </View>
           </View>
         </View>
+
+        {/* Attachments Display */}
+        {item.attachments && item.attachments.length > 0 && (
+          <View style={styles.homeworkAttachments}>
+            <View style={styles.attachmentsHeader}>
+              <Paperclip size={16} color="#ffffff" />
+              <Text style={styles.attachmentsTitle}>Attachments ({item.attachments.length})</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsScroll}>
+              {item.attachments.map((attachment, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.attachmentCard}
+                  onPress={() => downloadAttachment(attachment)}
+                >
+                  {attachment.type === 'image' ? (
+                    <Image source={{ uri: attachment.uri }} style={styles.attachmentCardImage} />
+                  ) : (
+                    <View style={styles.attachmentCardDocument}>
+                      <File size={20} color="#ffffff" />
+                    </View>
+                  )}
+                  <View style={styles.attachmentCardContent}>
+                    <Text style={styles.attachmentCardName} numberOfLines={1}>
+                      {attachment.name}
+                    </Text>
+                    <View style={styles.downloadIndicator}>
+                      <Download size={12} color="#ffffff" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </LinearGradient>
     </View>
   );
@@ -524,8 +771,108 @@ export default function HomeworkScreen() {
                 </View>
               )}
             </View>
+            <TouchableOpacity 
+              style={styles.searchButton}
+              onPress={() => setShowSearch(!showSearch)}
+            >
+              <Search size={24} color="#ffffff" />
+            </TouchableOpacity>
           </View>
+          
+          {/* Search Bar */}
+          {showSearch && (
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search homework..."
+                placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+          )}
+          
+          {/* Date Selector */}
+          <TouchableOpacity 
+            style={styles.dateSelector}
+            onPress={() => setShowCalendar(!showCalendar)}
+          >
+            <Text style={styles.dateSelectorText}>{formatMonthYear(selectedDate)}</Text>
+            <ChevronDown size={20} color="#ffffff" />
+          </TouchableOpacity>
         </LinearGradient>
+
+        {/* Calendar Overlay */}
+        {showCalendar && (
+          <View style={styles.calendarOverlay}>
+            <View style={styles.calendarContainer}>
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity 
+                  onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                >
+                  <Text style={styles.calendarNavButton}>‹</Text>
+                </TouchableOpacity>
+                <Text style={styles.calendarTitle}>{formatMonthYear(currentMonth)}</Text>
+                <TouchableOpacity 
+                  onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                >
+                  <Text style={styles.calendarNavButton}>›</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.calendarCloseButton}
+                  onPress={() => setShowCalendar(false)}
+                >
+                  <X size={20} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.calendarDaysHeader}>
+                {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
+                  <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
+                ))}
+              </View>
+              
+              <View style={styles.calendarGrid}>
+                {Array.from({ length: getFirstDayOfMonth(currentMonth) }, (_, i) => (
+                  <View key={`empty-${i}`} style={styles.calendarDay} />
+                ))}
+                {Array.from({ length: getDaysInMonth(currentMonth) }, (_, i) => {
+                  const day = i + 1;
+                  const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                  const dayHomework = homework.filter(item => isSameDay(new Date(item.fromDate), date));
+                  const hasHomework = dayHomework.length > 0;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.calendarDay,
+                        isSameDay(date, selectedDate) && styles.calendarDaySelected,
+                        hasHomework && styles.calendarDayWithEvents
+                      ]}
+                      onPress={() => {
+                        setSelectedDate(date);
+                        setShowCalendar(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.calendarDayText,
+                        isSameDay(date, selectedDate) && styles.calendarDayTextSelected
+                      ]}>
+                        {day}
+                      </Text>
+                      {hasHomework && (
+                        <View style={styles.calendarEventIndicator}>
+                          <Text style={styles.calendarEventIcon}>📚</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Content */}
         {!Array.isArray(homework) || homework.length === 0 ? (
@@ -545,8 +892,17 @@ export default function HomeworkScreen() {
             {pendingHomework.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Pending Assignments</Text>
-                  <Text style={styles.sectionSubtitle}>Tasks to complete</Text>
+                  <Text style={styles.sectionTitle}>
+                    {showCalendar ? 'All Homework' : `${selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long',
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })} Homework`}
+                  </Text>
+                  <Text style={styles.sectionSubtitle}>
+                    {showCalendar ? 'All assignments' : 'Tasks to complete'}
+                  </Text>
                 </View>
                 {pendingHomework.map(renderHomeworkCard)}
               </View>
@@ -808,6 +1164,72 @@ export default function HomeworkScreen() {
                   `Submission valid until: ${new Date(Date.now() + newHomework.toDate * 24 * 60 * 60 * 1000).toLocaleDateString()}`
                 }
                   </Text>
+                )}
+              </View>
+
+              {/* Attachments */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Attachments (Optional)</Text>
+                <Text style={styles.helperText}>
+                  📎 Add PDFs, Word files, PPTs, or images to support your homework
+                </Text>
+                
+                {/* Attachment Buttons */}
+                <View style={styles.attachmentButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.attachmentButton, styles.documentButton]}
+                    onPress={() => handlePickDocument()}
+                    disabled={isSubmitting}
+                  >
+                    <File size={20} color="#3b82f6" />
+                    <Text style={styles.attachmentButtonText}>Add Document</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.attachmentButton, styles.imageButton]}
+                    onPress={() => handlePickImage()}
+                    disabled={isSubmitting}
+                  >
+                    <ImageIcon size={20} color="#10b981" />
+                    <Text style={styles.attachmentButtonText}>Add Image</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Attachments List */}
+                {newHomework.attachments.length > 0 && (
+                  <View style={styles.attachmentsContainer}>
+                    <Text style={styles.attachmentsTitle}>
+                      📎 Attachments ({newHomework.attachments.length})
+                    </Text>
+                    {newHomework.attachments.map((attachment, index) => (
+                      <View key={index} style={styles.attachmentItem}>
+                        <View style={styles.attachmentInfo}>
+                          {attachment.type === 'image' ? (
+                            <Image source={{ uri: attachment.uri }} style={styles.attachmentThumbnail} />
+                          ) : (
+                            <View style={styles.documentIcon}>
+                              <File size={24} color="#6b7280" />
+                            </View>
+                          )}
+                          <View style={styles.attachmentDetails}>
+                            <Text style={styles.attachmentName} numberOfLines={1}>
+                              {attachment.name}
+                            </Text>
+                            <Text style={styles.attachmentSize}>
+                              {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.removeAttachmentButton}
+                          onPress={() => removeAttachment(index)}
+                          disabled={isSubmitting}
+                        >
+                          <Trash2 size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
                 )}
               </View>
 
@@ -2115,5 +2537,306 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 6,
+  },
+
+  // Calendar Styles
+  searchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainer: {
+    marginBottom: 15,
+  },
+  searchInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  dateSelectorText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  calendarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  calendarContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 350,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  calendarNavButton: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#667eea',
+    paddingHorizontal: 8,
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  calendarDaysHeader: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  calendarDayHeader: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    paddingVertical: 8,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  calendarDayText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#667eea',
+  },
+  calendarDayTextSelected: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  calendarDayWithEvents: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  calendarCloseButton: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  calendarEventIndicator: {
+    position: 'absolute',
+    bottom: 1,
+    right: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarEventIcon: {
+    fontSize: 12,
+  },
+  // Attachment styles
+  attachmentButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  attachmentButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    gap: 8,
+  },
+  documentButton: {
+    borderColor: '#3b82f6',
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+  },
+  imageButton: {
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+  },
+  attachmentButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  attachmentsContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  attachmentsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 12,
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  attachmentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  attachmentThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  documentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  attachmentDetails: {
+    flex: 1,
+  },
+  attachmentName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  removeAttachmentButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  // Homework card attachment styles
+  homeworkAttachments: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  attachmentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  attachmentsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  attachmentsScroll: {
+    flexGrow: 0,
+  },
+  attachmentCard: {
+    width: 80,
+    marginRight: 12,
+    alignItems: 'center',
+  },
+  attachmentCardImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  attachmentCardDocument: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentCardContent: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  attachmentCardName: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  downloadIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 }); 

@@ -77,7 +77,16 @@ router.put('/profile', protect, async (req, res) => {
       department,
       position,
       experience,
-      profileImage
+      profileImage,
+      // Hostel information fields
+      hostelRoom,
+      hostelBlock,
+      hostelFloor,
+      hostelWarden,
+      hostelWardenPhone,
+      hostelCheckInDate,
+      hostelCheckOutDate,
+      isHostelResident
     } = req.body;
 
     // Validate required fields
@@ -122,7 +131,16 @@ router.put('/profile', protect, async (req, res) => {
         department,
         position,
         experience,
-        profileImage
+        profileImage,
+        // Hostel information
+        hostelRoom,
+        hostelBlock,
+        hostelFloor,
+        hostelWarden,
+        hostelWardenPhone,
+        hostelCheckInDate,
+        hostelCheckOutDate,
+        isHostelResident
       },
       { new: true, runValidators: true }
     );

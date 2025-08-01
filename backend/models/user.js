@@ -103,6 +103,39 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Hostel information (for students)
+  hostelRoom: {
+    type: String,
+    default: null
+  },
+  hostelBlock: {
+    type: String,
+    default: null
+  },
+  hostelFloor: {
+    type: String,
+    default: null
+  },
+  hostelWarden: {
+    type: String,
+    default: null
+  },
+  hostelWardenPhone: {
+    type: String,
+    default: null
+  },
+  hostelCheckInDate: {
+    type: String,
+    default: null
+  },
+  hostelCheckOutDate: {
+    type: String,
+    default: null
+  },
+  isHostelResident: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true

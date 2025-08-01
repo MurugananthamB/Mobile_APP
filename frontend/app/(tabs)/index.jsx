@@ -1,11 +1,135 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, TrendingUp, Award, Bookmark } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, TrendingUp, Award, Bookmark, LogOut } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useState, useEffect, useCallback } from 'react';
+import ApiService from '../../services/api';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user profile data on mount
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  // Refresh user data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserProfile();
+    }, [])
+  );
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // First try to get stored user data
+      const storedUserData = await ApiService.getStoredUserData();
+      console.log('🏠 Home - Stored user data:', storedUserData);
+      
+      // Then fetch fresh data from API
+      const apiUserData = await ApiService.getProfile();
+      console.log('🏠 Home - API user data:', apiUserData);
+      
+      // Combine stored and API data
+      const combinedUserData = {
+        ...storedUserData,
+        ...apiUserData.user
+      };
+      
+      console.log('🏠 Home - Combined user data:', combinedUserData);
+      setUserInfo(combinedUserData);
+    } catch (error) {
+      console.error('🏠 Home - Error fetching user profile:', error);
+      // Fallback to stored data only
+      const storedUserData = await ApiService.getStoredUserData();
+      setUserInfo(storedUserData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      console.log('🚪 Logging out...');
+      await ApiService.logout();
+      console.log('🚪 Logout successful, navigating to login');
+      router.replace('/login');
+    } catch (error) {
+      console.error('🚪 Logout error:', error);
+      // Even if logout fails, clear local data and redirect
+      await ApiService.logout();
+      router.replace('/login');
+    }
+  };
+
+  // Get user display info with proper image URL construction
+  const getUserDisplayInfo = () => {
+    if (!userInfo) return { name: 'Loading...', subtitle: '', profileImageUrl: null };
+    
+    const name = userInfo.name || userInfo.fullName || 'User';
+    
+    // Determine subtitle based on user type
+    let subtitle = '';
+    if (userInfo.role === 'student') {
+      // For students, show class and roll number
+      const className = userInfo.class || userInfo.className || 'Class';
+      const rollNo = userInfo.rollNo || userInfo.rollNumber || '';
+      subtitle = `${className} • Roll No: ${rollNo}`;
+    } else if (userInfo.role === 'staff') {
+      // For staff, show department and designation
+      const department = userInfo.department || 'Department';
+      const designation = userInfo.designation || 'Staff';
+      subtitle = `${department} • ${designation}`;
+    } else if (userInfo.role === 'management') {
+      // For management, show position
+      const position = userInfo.position || 'Management';
+      subtitle = position;
+    } else {
+      // Default fallback
+      subtitle = userInfo.email || userInfo.userid || '';
+    }
+    
+    // Construct profile image URL properly
+    let profileImageUrl = null;
+    if (userInfo.profileImage) {
+      // If profileImage is already a full URL, use it directly
+      if (userInfo.profileImage.startsWith('http')) {
+        profileImageUrl = `${userInfo.profileImage}?t=${Date.now()}`;
+      } else {
+        // If it's a path, construct the full URL
+        const baseUrl = 'http://192.168.101.45:5000';
+        profileImageUrl = `${baseUrl}${userInfo.profileImage}?t=${Date.now()}`;
+      }
+    }
+    
+    console.log('🏠 Home - getUserDisplayInfo:', {
+      name,
+      subtitle,
+      role: userInfo.role,
+      profileImageUrl,
+      originalProfileImage: userInfo.profileImage
+    });
+    
+    return { name, subtitle, profileImageUrl };
+  };
+
+  const displayInfo = getUserDisplayInfo();
+
+  // Show loading state while fetching user data
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const quickActions = [
     { title: 'Profile', icon: User, route: 'profile', color: '#1e40af' },
@@ -35,23 +159,33 @@ export default function HomeScreen() {
         >
           <View style={styles.headerContent}>
             <View style={styles.userInfo}>
-              <View style={styles.profileContainer}>
-                <Image
-                  source={{ uri: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400' }}
-                  style={styles.profileImage}
-                />
-                <View style={styles.onlineIndicator} />
-              </View>
+                <View style={styles.profileContainer}>
+                  <Image
+                    source={{ 
+                      uri: displayInfo.profileImageUrl || 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400' 
+                    }}
+                    style={styles.profileImage}
+                    onError={(error) => {
+                      console.log('🏠 Home - Profile image load error:', error);
+                    }}
+                  />
+                  <View style={styles.onlineIndicator} />
+                </View>
               <View style={styles.userDetails}>
                 <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.studentName}>John Doe</Text>
-                <Text style={styles.className}>Class 10-A • Roll No: 15</Text>
+                <Text style={styles.userName}>{displayInfo.name}</Text>
+                <Text style={styles.subtitle}>{displayInfo.subtitle}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.notificationButton}>
-              <Bell size={24} color="#ffffff" />
-              <View style={styles.notificationBadge} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.notificationButton}>
+                <Bell size={24} color="#ffffff" />
+                <View style={styles.notificationBadge} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <LogOut size={24} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -192,6 +326,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6b7280',
+  },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 30,
@@ -237,16 +380,21 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontSize: 14,
   },
-  studentName: {
+  userName: {
     color: '#ffffff',
     fontSize: 20,
     fontWeight: '700',
     marginTop: 2,
   },
-  className: {
+  subtitle: {
     color: '#e2e8f0',
     fontSize: 12,
     marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   notificationButton: {
     position: 'relative',
@@ -265,6 +413,14 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#ef4444',
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsContainer: {
     flexDirection: 'row',

@@ -1,9 +1,66 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bed, Users, Clock, MapPin, Phone, Mail, Wifi, Utensils, Shield, Plus } from 'lucide-react-native';
+import { Bed, Users, Clock, MapPin, Phone, Mail, Wifi, Utensils, Shield, Plus, User, Calendar, CalendarDays, Clock3, BookOpen } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import ApiService from '../services/api';
 
 export default function HostelScreen() {
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      // Get stored user data first
+      const storedUserData = await ApiService.getStoredUserData();
+
+      // Fetch fresh profile data from API
+      const profileResponse = await ApiService.getProfile();
+
+      // Combine stored data with API data
+      const combinedUserData = {
+        ...storedUserData,
+        ...profileResponse.user,
+      };
+
+      
+      
+      setUserData(combinedUserData);
+    } catch (error) {
+      console.error('❌ Error fetching profile:', error);
+      Alert.alert('Error', 'Failed to load hostel information');
+      
+      // Fallback to stored user data if API fails
+      try {
+        const storedUserData = await ApiService.getStoredUserData();
+
+        if (storedUserData) {
+          setUserData(storedUserData);
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback error:', fallbackError);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading hostel information...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -17,63 +74,107 @@ export default function HostelScreen() {
               <Text style={styles.headerTitle}>Hostel</Text>
               <Text style={styles.headerSubtitle}>GBPS Student Hostel</Text>
             </View>
-            <TouchableOpacity style={styles.contactButton}>
-              <Phone size={20} color="#ffffff" />
-            </TouchableOpacity>
+                         <View style={styles.headerActions}>
+               <TouchableOpacity 
+                 style={[styles.contactButton, styles.scheduleButton]}
+                 onPress={() => router.push('/schedule')}
+               >
+                 <BookOpen size={20} color="#ffffff" />
+               </TouchableOpacity>
+               <TouchableOpacity 
+                 style={[styles.contactButton, styles.attendanceButton]}
+                 onPress={() => router.push('/hostel-attendance')}
+               >
+                 <Calendar size={20} color="#ffffff" />
+               </TouchableOpacity>
+             </View>
           </View>
         </LinearGradient>
 
-        {/* Content */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Room Information</Text>
-          <View style={styles.roomCard}>
-            <View style={styles.roomHeader}>
-              <View style={styles.roomNumberContainer}>
-                <Bed size={20} color="#1e40af" />
-                <Text style={styles.roomNumber}>A-15</Text>
-              </View>
-              <View style={styles.roomStatus}>
-                <Text style={styles.roomStatusText}>Occupied</Text>
+                                 {/* Content */}
+        
+        
+        
+        {userData?.isHostelResident ? (
+          <>
+            {/* Room Information */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Room Information</Text>
+              <View style={styles.roomCard}>
+                <View style={styles.roomHeader}>
+                  <View style={styles.roomNumberContainer}>
+                    <Bed size={20} color="#1e40af" />
+                    <Text style={styles.roomNumber}>{userData?.hostelRoom || 'Not assigned'}</Text>
+                  </View>
+                  <View style={styles.roomStatus}>
+                    <Text style={styles.roomStatusText}>Occupied</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.roomDetails}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Floor:</Text>
+                    <Text style={styles.detailValue}>{userData?.hostelFloor || 'Not assigned'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Block:</Text>
+                    <Text style={styles.detailValue}>{userData?.hostelBlock || 'Not assigned'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Warden:</Text>
+                    <Text style={styles.detailValue}>{userData?.hostelWarden || 'Not assigned'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Warden Phone:</Text>
+                    <Text style={styles.detailValue}>{userData?.hostelWardenPhone || 'Not available'}</Text>
+                  </View>
+                </View>
               </View>
             </View>
-            
-            <View style={styles.roomDetails}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Floor:</Text>
-                <Text style={styles.detailValue}>1st Floor</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Block:</Text>
-                <Text style={styles.detailValue}>Block A</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Capacity:</Text>
-                <Text style={styles.detailValue}>2/2</Text>
-              </View>
-            </View>
-          </View>
-        </View>
 
-        {/* Facilities */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Facilities</Text>
-          <View style={styles.facilitiesGrid}>
-            <View style={styles.facilityCard}>
-              <View style={styles.facilityIcon}>
-                <Wifi size={24} color="#10b981" />
+            {/* Stay Information */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Stay Information</Text>
+              <View style={styles.stayCard}>
+                <View style={styles.stayItem}>
+                  <Calendar size={20} color="#1e40af" />
+                  <View style={styles.stayText}>
+                    <Text style={styles.stayLabel}>Check-in Date</Text>
+                    <Text style={styles.stayValue}>{userData?.hostelCheckInDate || 'Not set'}</Text>
+                  </View>
+                </View>
+                <View style={styles.stayItem}>
+                  <Calendar size={20} color="#dc2626" />
+                  <View style={styles.stayText}>
+                    <Text style={styles.stayLabel}>Check-out Date</Text>
+                    <Text style={styles.stayValue}>{userData?.hostelCheckOutDate || 'Not set'}</Text>
+                  </View>
+                </View>
+                <View style={styles.stayItem}>
+                  <User size={20} color="#10b981" />
+                  <View style={styles.stayText}>
+                    <Text style={styles.stayLabel}>Resident Status</Text>
+                    <Text style={[styles.stayValue, { color: '#10b981', fontWeight: '600' }]}>
+                      Active Resident
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.facilityName}>Wi-Fi</Text>
-              <Text style={styles.facilityDescription}>High-speed internet</Text>
             </View>
-            <View style={styles.facilityCard}>
-              <View style={styles.facilityIcon}>
-                <Utensils size={24} color="#10b981" />
-              </View>
-              <Text style={styles.facilityName}>Mess</Text>
-              <Text style={styles.facilityDescription}>3 meals daily</Text>
+          </>
+        ) : (
+          /* Not a hostel resident */
+          <View style={styles.section}>
+            <View style={styles.noResidentCard}>
+              <User size={48} color="#6b7280" />
+              <Text style={styles.noResidentTitle}>Not a Hostel Resident</Text>
+              <Text style={styles.noResidentText}>
+                You are not currently registered as a hostel resident. 
+                Contact the administration for hostel accommodation.
+              </Text>
             </View>
           </View>
-        </View>
+                 )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -108,6 +209,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#e2e8f0',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   contactButton: {
     width: 48,
     height: 48,
@@ -116,6 +222,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  scheduleButton: {
+    backgroundColor: '#ff6b6b',
+    shadowColor: '#ff6b6b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  attendanceButton: {
+    backgroundColor: '#4ecdc4',
+    shadowColor: '#4ecdc4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  
   section: {
     marginHorizontal: 20,
     marginBottom: 25,
@@ -181,17 +304,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1f2937',
   },
-  facilitiesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  facilityCard: {
+  stayCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 15,
-    width: '48%',
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  stayItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 15,
+  },
+  stayText: {
+    marginLeft: 10,
+  },
+  stayLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  stayValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noResidentCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -199,18 +341,30 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  facilityIcon: {
+  noResidentTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginTop: 15,
     marginBottom: 8,
   },
-  facilityName: {
+  noResidentText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  facilityDescription: {
-    fontSize: 12,
     color: '#6b7280',
     textAlign: 'center',
+    lineHeight: 22,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#1e40af',
+    fontWeight: '600',
+  },
+
+  
 }); 

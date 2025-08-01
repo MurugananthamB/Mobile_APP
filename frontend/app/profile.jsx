@@ -1,12 +1,17 @@
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Modal, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3, LogOut, RefreshCw, X, Camera, Save } from 'lucide-react-native';
+import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3, RefreshCw, X, Camera, Save } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useState, useEffect } from 'react';
 import ApiService from '../services/api';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Get BASE_URL from ApiService
+const BASE_URL = __DEV__ 
+  ? 'http://192.168.101.45:5000'  // Your computer's IP address
+  : 'https://mobile-app-5diq.onrender.com'; // Production
 
 export default function ProfileScreen() {
   const [userData, setUserData] = useState(null);
@@ -18,6 +23,7 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageUpdateKey, setImageUpdateKey] = useState(0);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Fetch user profile data
   const fetchUserProfile = async (isRefresh = false) => {
@@ -95,6 +101,15 @@ export default function ProfileScreen() {
         department: userData.department || '',
         position: userData.position || '',
         experience: userData.experience || '',
+        // Hostel details
+        hostelRoom: userData.hostelRoom || '',
+        hostelBlock: userData.hostelBlock || '',
+        hostelFloor: userData.hostelFloor || '',
+        hostelWarden: userData.hostelWarden || '',
+        hostelWardenPhone: userData.hostelWardenPhone || '',
+        hostelCheckInDate: userData.hostelCheckInDate || '',
+        hostelCheckOutDate: userData.hostelCheckOutDate || '',
+        isHostelResident: userData.isHostelResident !== undefined ? userData.isHostelResident : false,
         isActive: userData.isActive !== undefined ? userData.isActive : true,
       });
       setSelectedImage(null);
@@ -108,11 +123,13 @@ export default function ProfileScreen() {
     setEditForm({});
     setSelectedImage(null);
     setSaving(false);
+    setUploadingImage(false);
   };
 
   // Pick image from gallery
   const pickImage = async () => {
     try {
+        console.log('📸 Picking image from gallery...');
         let result;
         if (Platform.OS === 'web') {
             // Web implementation
@@ -122,8 +139,17 @@ export default function ProfileScreen() {
             input.onchange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
+                    console.log('📸 Web file selected:', file.name, file.size, file.type);
+                    
+                    // Check file size (5MB limit)
+                    if (file.size > 5 * 1024 * 1024) {
+                        Alert.alert('File Too Large', 'Please select an image smaller than 5MB');
+                        return;
+                    }
+                    
                     const reader = new FileReader();
                     reader.onload = (event) => {
+                        console.log('📸 Web file loaded as data URL');
                         setSelectedImage(event.target.result);
                     };
                     reader.readAsDataURL(file);
@@ -140,15 +166,25 @@ export default function ProfileScreen() {
             result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
-                aspect: [4, 3],
-                quality: 1,
+                aspect: [1, 1], // Square aspect ratio for profile images
+                quality: 0.8,
             });
-            if (!result.canceled) {
-                setSelectedImage(result.assets[0].uri);
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                console.log('📸 Image selected from gallery:', result.assets[0]);
+                
+                // Check file size (5MB limit)
+                if (result.assets[0].fileSize && result.assets[0].fileSize > 5 * 1024 * 1024) {
+                    Alert.alert('File Too Large', 'Please select an image smaller than 5MB');
+                    return;
+                }
+                
+                setSelectedImage(result.assets[0]);
+            } else {
+                console.log('📸 Image selection cancelled');
             }
         }
     } catch (error) {
-        console.error('Image picker error:', error);
+        console.error('❌ Image picker error:', error);
         Alert.alert('Error', 'Failed to pick image');
     }
 };
@@ -181,7 +217,7 @@ export default function ProfileScreen() {
       // Launch camera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: [1, 1], // Square aspect ratio for profile images
         quality: 0.8,
         allowsMultipleSelection: false,
       });
@@ -201,8 +237,14 @@ export default function ProfileScreen() {
           height: selectedAsset.height
         });
         
+        // Check file size (5MB limit)
+        if (selectedAsset.fileSize && selectedAsset.fileSize > 5 * 1024 * 1024) {
+          Alert.alert('File Too Large', 'Please take a photo smaller than 5MB');
+          return;
+        }
+        
         setSelectedImage(selectedAsset);
-        Alert.alert('Success', 'Photo taken! Tap Save to upload.');
+        console.log('📸 Photo set as selected image');
       } else {
         console.log('📸 Photo cancelled or no photo taken');
       }
@@ -263,54 +305,79 @@ export default function ProfileScreen() {
         // Upload image if selected
         let imageUrl = userData?.profileImage;
         if (selectedImage) {
-            const formData = new FormData();
-            if (Platform.OS === 'web') {
-                // Web upload
-                const response = await fetch(selectedImage);
-                const blob = await response.blob();
-                formData.append('image', blob, 'profile.jpg');
-            } else {
-                // Mobile upload
-                const uriParts = selectedImage.split('.');
-                const fileType = uriParts[uriParts.length - 1];
-                formData.append('image', {
-                    uri: selectedImage,
-                    name: `profile.${fileType}`,
-                    type: `image/${fileType}`,
-                });
-            }
+            console.log('📤 Uploading selected image...');
+            console.log('📤 Selected image:', selectedImage);
             
-            const uploadResponse = await ApiService.uploadProfileImage(formData);
-            
-            // Handle different response formats
-            if (uploadResponse?.url) {
-                imageUrl = uploadResponse.url;
-            } else if (uploadResponse?.data?.url) {
-                imageUrl = uploadResponse.data.url;
-            } else if (uploadResponse?.imageUrl) {
-                imageUrl = uploadResponse.imageUrl;
-            } else {
-                console.log('Upload response:', uploadResponse);
-                throw new Error('Image upload failed - unexpected response format');
+            setUploadingImage(true);
+            try {
+                // Upload the image first
+                const uploadResponse = await ApiService.uploadProfileImage(selectedImage);
+                console.log('📤 Upload response:', uploadResponse);
+                
+                // Handle different response formats
+                if (uploadResponse?.imageUrl) {
+                    imageUrl = uploadResponse.imageUrl;
+                } else if (uploadResponse?.url) {
+                    imageUrl = uploadResponse.url;
+                } else if (uploadResponse?.data?.imageUrl) {
+                    imageUrl = uploadResponse.data.imageUrl;
+                } else if (uploadResponse?.data?.url) {
+                    imageUrl = uploadResponse.data.url;
+                } else {
+                    console.log('❌ Upload response format not recognized:', uploadResponse);
+                    throw new Error('Image upload failed - unexpected response format');
+                }
+                
+                console.log('📤 Final image URL:', imageUrl);
+            } catch (uploadError) {
+                console.error('❌ Image upload error:', uploadError);
+                Alert.alert('Upload Error', uploadError.message || 'Failed to upload image');
+                setUploadingImage(false);
+                return;
+            } finally {
+                setUploadingImage(false);
             }
         }
         
-        // Update profile with new image
-        const updateResponse = await ApiService.updateProfile({
+        // Update profile with new data and image URL
+        const updateData = {
             ...editForm,
             profileImage: imageUrl
-        });
+        };
         
-        if (!updateResponse?.data) {
+        console.log('📤 Updating profile with data:', updateData);
+        const updateResponse = await ApiService.updateProfile(updateData);
+        console.log('📤 Update response:', updateResponse);
+        
+        if (!updateResponse?.user) {
             throw new Error('Profile update failed');
         }
         
-        setUserData(updateResponse.data);
+        // Update local state
+        setUserData(updateResponse.user);
+        setImageUpdateKey(prev => prev + 1); // Force image refresh
         setShowEditModal(false);
-        Alert.alert('Success', 'Profile updated successfully');
+        
+        // Show success message with image upload info
+        const message = selectedImage 
+          ? 'Profile and image updated successfully!' 
+          : 'Profile updated successfully!';
+        Alert.alert('Success', message);
     } catch (error) {
-        console.error('Save error:', error);
-        Alert.alert('Error', error.message || 'Failed to update profile');
+        console.error('❌ Save error:', error);
+        
+        // Handle specific error types
+        let errorMessage = error.message || 'Failed to update profile';
+        
+        if (error.message.includes('Network request failed')) {
+            errorMessage = 'Network error. Please check your internet connection.';
+        } else if (error.message.includes('upload')) {
+            errorMessage = 'Image upload failed. Please try again.';
+        } else if (error.message.includes('profile')) {
+            errorMessage = 'Profile update failed. Please try again.';
+        }
+        
+        Alert.alert('Error', errorMessage);
     } finally {
         setSaving(false);
     }
@@ -356,8 +423,13 @@ export default function ProfileScreen() {
 
     // Add cache-busting parameter to profile image URL
     const profileImageUrl = userData.profileImage 
-      ? `${userData.profileImage}?t=${Date.now()}` 
+      ? `${BASE_URL.replace('/api', '')}${userData.profileImage}?t=${Date.now()}` 
       : null;
+
+    console.log('🖼️ getUserDisplayInfo - userData.profileImage:', userData.profileImage);
+    console.log('🖼️ getUserDisplayInfo - profileImageUrl:', profileImageUrl);
+    console.log('🖼️ getUserDisplayInfo - BASE_URL:', BASE_URL);
+    console.log('🖼️ getUserDisplayInfo - BASE_URL.replace("/api", ""):', BASE_URL.replace('/api', ''));
 
     const baseInfo = {
       name: userData.name || 'User',
@@ -389,6 +461,10 @@ export default function ProfileScreen() {
         ...baseInfo,
         qualification: userData.qualification || 'Not specified',
         subject: userData.subject || 'Not specified',
+        dateOfBirth: userData.dateOfBirth || 'Not specified',
+        bloodGroup: userData.bloodGroup || 'Not specified',
+        assignedClass: userData.assignedClass || 'Not specified',
+        assignedSection: userData.assignedSection || 'Not specified',
       };
     } else if (userData.role === 'management') {
       return {
@@ -397,38 +473,15 @@ export default function ProfileScreen() {
         department: userData.department || 'Not specified',
         position: userData.position || 'Not specified',
         experience: userData.experience || 'Not specified',
+        dateOfBirth: userData.dateOfBirth || 'Not specified',
+        bloodGroup: userData.bloodGroup || 'Not specified',
       };
     }
 
     return baseInfo;
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await ApiService.logout();
-              console.log('Logout confirmed - redirecting to login');
-              router.replace('/login');
-            } catch (error) {
-              console.error('Logout error:', error);
-              router.replace('/login');
-            }
-          },
-        },
-      ]
-    );
-  };
+
 
   // Loading state
   if (loading) {
@@ -488,6 +541,18 @@ export default function ProfileScreen() {
                   : 'https://via.placeholder.com/150')
               }}
               style={styles.profileImage}
+              onError={(error) => {
+                console.log('❌ Image load error:', error.nativeEvent);
+                console.log('❌ Image URI:', selectedImage?.uri || (userInfo.profileImage 
+                  ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
+                  : 'https://via.placeholder.com/150'));
+              }}
+              onLoad={() => {
+                console.log('✅ Image loaded successfully');
+                console.log('✅ Image URI:', selectedImage?.uri || (userInfo.profileImage 
+                  ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
+                  : 'https://via.placeholder.com/150'));
+              }}
             />
             <Text style={styles.studentName}>{userInfo.name}</Text>
             <Text style={styles.studentDetails}>
@@ -550,21 +615,17 @@ export default function ProfileScreen() {
               ) : (
                 <>
                   <View style={styles.infoItem}>
-                    <BookOpen size={20} color="#1e40af" />
+                    <Calendar size={20} color="#1e40af" />
                     <View style={styles.infoText}>
-                      <Text style={styles.infoLabel}>Qualification</Text>
-                      <Text style={styles.infoValue}>{userInfo.qualification}</Text>
+                      <Text style={styles.infoLabel}>Date of Birth</Text>
+                      <Text style={styles.infoValue}>{userInfo.dateOfBirth}</Text>
                     </View>
                   </View>
                   <View style={styles.infoItem}>
                     <Award size={20} color="#1e40af" />
                     <View style={styles.infoText}>
-                      <Text style={styles.infoLabel}>
-                        {userData?.role === 'staff' ? 'Subject' : 'Department'}
-                      </Text>
-                      <Text style={styles.infoValue}>
-                        {userData?.role === 'staff' ? userInfo.subject : userInfo.department}
-                      </Text>
+                      <Text style={styles.infoLabel}>Blood Group</Text>
+                      <Text style={styles.infoValue}>{userInfo.bloodGroup}</Text>
                     </View>
                   </View>
                 </>
@@ -584,6 +645,60 @@ export default function ProfileScreen() {
                   <View style={styles.infoText}>
                     <Text style={styles.infoLabel}>Section</Text>
                     <Text style={styles.infoValue}>{userInfo.section}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {userData?.role === 'staff' && (
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <BookOpen size={20} color="#1e40af" />
+                  <View style={styles.infoText}>
+                    <Text style={styles.infoLabel}>Subject</Text>
+                    <Text style={styles.infoValue}>{userInfo.subject}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoItem}>
+                  <Award size={20} color="#1e40af" />
+                  <View style={styles.infoText}>
+                    <Text style={styles.infoLabel}>Qualification</Text>
+                    <Text style={styles.infoValue}>{userInfo.qualification}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {userData?.role === 'staff' && (
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <BookOpen size={20} color="#1e40af" />
+                  <View style={styles.infoText}>
+                    <Text style={styles.infoLabel}>Assigned Class</Text>
+                    <Text style={styles.infoValue}>{userInfo.assignedClass}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoItem}>
+                  <Award size={20} color="#1e40af" />
+                  <View style={styles.infoText}>
+                    <Text style={styles.infoLabel}>Assigned Section</Text>
+                    <Text style={styles.infoValue}>{userInfo.assignedSection}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {userData?.role === 'management' && (
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <BookOpen size={20} color="#1e40af" />
+                  <View style={styles.infoText}>
+                    <Text style={styles.infoLabel}>Department</Text>
+                    <Text style={styles.infoValue}>{userInfo.department}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoItem}>
+                  <Award size={20} color="#1e40af" />
+                  <View style={styles.infoText}>
+                    <Text style={styles.infoLabel}>Qualification</Text>
+                    <Text style={styles.infoValue}>{userInfo.qualification}</Text>
                   </View>
                 </View>
               </View>
@@ -729,13 +844,23 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Logout Button */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <LogOut size={20} color="#ffffff" />
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Emergency Contact - For staff and management */}
+        {userData?.role !== 'student' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Emergency Contact</Text>
+            <View style={styles.contactCard}>
+              <View style={styles.contactItem}>
+                <Phone size={20} color="#dc2626" />
+                <View style={styles.contactText}>
+                  <Text style={styles.contactLabel}>Emergency Contact</Text>
+                  <Text style={styles.contactValue}>{userInfo.emergencyContact}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -753,10 +878,10 @@ export default function ProfileScreen() {
             <Text style={styles.modalTitle}>Edit Profile</Text>
             <TouchableOpacity 
               onPress={saveProfile} 
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              disabled={saving}
+              style={[styles.saveButton, (saving || uploadingImage) && styles.saveButtonDisabled]}
+              disabled={saving || uploadingImage}
             >
-              {saving ? (
+              {(saving || uploadingImage) ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <Save size={20} color="#ffffff" />
@@ -783,12 +908,37 @@ export default function ProfileScreen() {
                       : 'https://via.placeholder.com/150')
                   }}
                   style={styles.editProfileImage}
+                  onError={(error) => {
+                    console.log('❌ Edit modal image load error:', error.nativeEvent);
+                    console.log('❌ Edit modal image URI:', selectedImage?.uri || (userInfo.profileImage 
+                      ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
+                      : 'https://via.placeholder.com/150'));
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Edit modal image loaded successfully');
+                    console.log('✅ Edit modal image URI:', selectedImage?.uri || (userInfo.profileImage 
+                      ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
+                      : 'https://via.placeholder.com/150'));
+                  }}
                 />
                 <View style={styles.imageOverlay}>
                   <Camera size={24} color="#ffffff" />
                 </View>
+                {selectedImage && (
+                  <View style={styles.imageSelectedIndicator}>
+                    <Text style={styles.imageSelectedText}>✓</Text>
+                  </View>
+                )}
               </TouchableOpacity>
-              <Text style={styles.imageLabel}>Tap to change photo</Text>
+              <Text style={styles.imageLabel}>
+                {selectedImage ? 'Image selected - tap to change' : 'Tap to change photo'}
+              </Text>
+              {uploadingImage && (
+                <View style={styles.uploadingIndicator}>
+                  <ActivityIndicator size="small" color="#1e40af" />
+                  <Text style={styles.uploadingText}>Uploading image...</Text>
+                </View>
+              )}
             </View>
 
             {/* Basic Information Form */}
@@ -929,6 +1079,51 @@ export default function ProfileScreen() {
                        placeholderTextColor="#9ca3af"
                      />
                    </View>
+
+                   <View style={styles.inputGroup}>
+                     <Text style={styles.inputLabel}>Date of Birth</Text>
+                     <TextInput
+                       style={styles.textInput}
+                       value={editForm.dateOfBirth}
+                       onChangeText={(text) => setEditForm(prev => ({ ...prev, dateOfBirth: text }))}
+                       placeholder="DD/MM/YYYY"
+                       placeholderTextColor="#9ca3af"
+                     />
+                   </View>
+
+                   <View style={styles.inputRow}>
+                     <View style={[styles.inputGroup, styles.halfWidth]}>
+                       <Text style={styles.inputLabel}>Assigned Class</Text>
+                       <TextInput
+                         style={styles.textInput}
+                         value={editForm.assignedClass}
+                         onChangeText={(text) => setEditForm(prev => ({ ...prev, assignedClass: text }))}
+                         placeholder="Class"
+                         placeholderTextColor="#9ca3af"
+                       />
+                     </View>
+                     <View style={[styles.inputGroup, styles.halfWidth]}>
+                       <Text style={styles.inputLabel}>Assigned Section</Text>
+                       <TextInput
+                         style={styles.textInput}
+                         value={editForm.assignedSection}
+                         onChangeText={(text) => setEditForm(prev => ({ ...prev, assignedSection: text }))}
+                         placeholder="Section"
+                         placeholderTextColor="#9ca3af"
+                       />
+                     </View>
+                   </View>
+
+                   <View style={styles.inputGroup}>
+                     <Text style={styles.inputLabel}>Blood Group</Text>
+                     <TextInput
+                       style={styles.textInput}
+                       value={editForm.bloodGroup}
+                       onChangeText={(text) => setEditForm(prev => ({ ...prev, bloodGroup: text }))}
+                       placeholder="Blood group"
+                       placeholderTextColor="#9ca3af"
+                     />
+                   </View>
                  </>
                )}
 
@@ -976,6 +1171,47 @@ export default function ProfileScreen() {
                        onChangeText={(text) => setEditForm(prev => ({ ...prev, qualification: text }))}
                        placeholder="Enter your qualification"
                        placeholderTextColor="#9ca3af"
+                     />
+                   </View>
+
+                   <View style={styles.inputGroup}>
+                     <Text style={styles.inputLabel}>Date of Birth</Text>
+                     <TextInput
+                       style={styles.textInput}
+                       value={editForm.dateOfBirth}
+                       onChangeText={(text) => setEditForm(prev => ({ ...prev, dateOfBirth: text }))}
+                       placeholder="DD/MM/YYYY"
+                       placeholderTextColor="#9ca3af"
+                     />
+                   </View>
+
+                   <View style={styles.inputGroup}>
+                     <Text style={styles.inputLabel}>Blood Group</Text>
+                     <TextInput
+                       style={styles.textInput}
+                       value={editForm.bloodGroup}
+                       onChangeText={(text) => setEditForm(prev => ({ ...prev, bloodGroup: text }))}
+                       placeholder="Blood group"
+                       placeholderTextColor="#9ca3af"
+                     />
+                   </View>
+                 </>
+               )}
+
+               {/* Emergency Contact - For staff and management */}
+               {userData?.role !== 'student' && (
+                 <>
+                   <Text style={styles.formSectionTitle}>Emergency Contact</Text>
+                   
+                   <View style={styles.inputGroup}>
+                     <Text style={styles.inputLabel}>Emergency Contact</Text>
+                     <TextInput
+                       style={styles.textInput}
+                       value={editForm.emergencyContact}
+                       onChangeText={(text) => setEditForm(prev => ({ ...prev, emergencyContact: text }))}
+                       placeholder="Emergency contact number"
+                       placeholderTextColor="#9ca3af"
+                       keyboardType="phone-pad"
                      />
                    </View>
                  </>
@@ -1053,6 +1289,112 @@ export default function ProfileScreen() {
                   </View>
                 </>
               )}
+
+              {/* Hostel Information - For all profiles */}
+              <>
+                <Text style={styles.formSectionTitle}>Hostel Information</Text>
+                
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Hostel Room</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelRoom}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelRoom: text }))}
+                      placeholder="Room number"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Hostel Block</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelBlock}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelBlock: text }))}
+                      placeholder="Block name"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Hostel Floor</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelFloor}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelFloor: text }))}
+                      placeholder="Floor number"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Is Hostel Resident</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.textInput,
+                        { 
+                          backgroundColor: editForm.isHostelResident ? '#10b981' : '#ef4444',
+                          justifyContent: 'center',
+                          alignItems: 'center'
+                        }
+                      ]}
+                      onPress={() => setEditForm(prev => ({ ...prev, isHostelResident: !prev.isHostelResident }))}
+                    >
+                      <Text style={[styles.readOnlyText, { color: '#ffffff', fontWeight: '600' }]}>
+                        {editForm.isHostelResident ? 'Yes' : 'No'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Hostel Warden</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelWarden}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelWarden: text }))}
+                      placeholder="Warden name"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Warden Phone</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelWardenPhone}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelWardenPhone: text }))}
+                      placeholder="Warden phone"
+                      placeholderTextColor="#9ca3af"
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Check-in Date</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelCheckInDate}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelCheckInDate: text }))}
+                      placeholder="DD/MM/YYYY"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                  <View style={[styles.inputGroup, styles.halfWidth]}>
+                    <Text style={styles.inputLabel}>Check-out Date</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editForm.hostelCheckOutDate}
+                      onChangeText={(text) => setEditForm(prev => ({ ...prev, hostelCheckOutDate: text }))}
+                      placeholder="DD/MM/YYYY"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+                </View>
+              </>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -1283,26 +1625,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1f2937',
   },
-  logoutButton: {
-    backgroundColor: '#dc2626',
+  hostelCard: {
+    backgroundColor: '#ffffff',
     borderRadius: 12,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  logoutButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+  hostelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
   },
+  hostelText: {
+    marginLeft: 15,
+    flex: 1,
+  },
+  hostelLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  hostelValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+  },
+
   // Modal Styles
   modalContainer: {
     flex: 1,
@@ -1373,6 +1725,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 5,
+  },
+  imageSelectedIndicator: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  imageSelectedText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  uploadingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+  },
+  uploadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#1e40af',
+    fontWeight: '500',
   },
   formSection: {
     marginTop: 20,

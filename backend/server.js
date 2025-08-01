@@ -12,6 +12,7 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const homeworkRoutes = require('./routes/homeworkRoutes');
 const eventsRoutes = require('./routes/eventsRoutes');
 const noticesRoutes = require('./routes/noticesRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/homework', homeworkRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/notices', noticesRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Root Route
 app.get('/', (req, res) => {

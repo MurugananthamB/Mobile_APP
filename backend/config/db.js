@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     // Use environment variable or fallback to default MongoDB URI
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/school-app';
+    const mongoURI = process.env.MONGO_URI;
     
     console.log('🔄 Attempting to connect to MongoDB...');
     console.log('📍 MongoDB URI:', mongoURI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs

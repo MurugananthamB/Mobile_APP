@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 // For React Native, use your computer's IP address instead of localhost
 const BASE_URL = __DEV__ 
   ? 'http://192.168.101.45:5000/api'  // Your computer's IP address
-  : 'https://your-production-api.com/api'; // Production
+  : 'https://mobile-app-5diq.onrender.com/api'; // Production
 
 class ApiService {
   constructor() {
@@ -171,12 +171,25 @@ class ApiService {
           throw new Error(`Failed to process web file: ${webError.message}`);
         }
       } else {
-        // Mobile platform
-        const imageFile = {
-          uri: imageUri,
-          type: 'image/jpeg',
-          name: 'profile-image.jpg',
-        };
+        // Mobile platform - handle both string URI and object
+        let imageFile;
+        if (typeof imageUri === 'string') {
+          // If it's a string URI (from image picker)
+          imageFile = {
+            uri: imageUri,
+            type: 'image/jpeg',
+            name: 'profile-image.jpg',
+          };
+        } else if (imageUri && imageUri.uri) {
+          // If it's an object with uri property (from camera)
+          imageFile = {
+            uri: imageUri.uri,
+            type: imageUri.type || 'image/jpeg',
+            name: imageUri.fileName || 'profile-image.jpg',
+          };
+        } else {
+          throw new Error('Invalid image URI format');
+        }
         
         console.log('📤 Mobile image file object:', imageFile);
         formData.append('profileImage', imageFile);
@@ -376,6 +389,35 @@ class ApiService {
     return await this.makeRequest('/notices', {
       method: 'POST',
       body: JSON.stringify(noticeData),
+    });
+  }
+
+  // =============== SCHEDULE METHODS ===============
+  async getSchedules() {
+    return await this.makeRequest('/schedules');
+  }
+
+  async getScheduleById(id) {
+    return await this.makeRequest(`/schedules/${id}`);
+  }
+
+  async createSchedule(scheduleData) {
+    return await this.makeRequest('/schedules', {
+      method: 'POST',
+      body: JSON.stringify(scheduleData),
+    });
+  }
+
+  async updateSchedule(id, scheduleData) {
+    return await this.makeRequest(`/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(scheduleData),
+    });
+  }
+
+  async deleteSchedule(id) {
+    return await this.makeRequest(`/schedules/${id}`, {
+      method: 'DELETE',
     });
   }
 

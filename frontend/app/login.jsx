@@ -53,7 +53,7 @@ export default function LoginScreen() {
         style={styles.gradient}
       >
         <View style={styles.content}>
-          {/* Logo and Title */}
+         
           <View style={styles.logoContainer}>
             <Image
               source={require('../assets/images/logo.jpeg')}

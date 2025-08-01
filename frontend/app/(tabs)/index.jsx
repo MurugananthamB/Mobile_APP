@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, TrendingUp, Award, Bookmark, LogOut } from 'lucide-react-native';
+import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, Bookmark, LogOut } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import ApiService from '../../services/api';
@@ -189,40 +189,52 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <LinearGradient
-            colors={['#86efac', '#4ade80']}
-            style={styles.statCard}
-          >
-            <View style={styles.statIcon}>
-              <TrendingUp size={20} color="#ffffff" />
-            </View>
-            <Text style={styles.statNumber}>92%</Text>
-            <Text style={styles.statLabel}>Attendance</Text>
-          </LinearGradient>
-          
-          <LinearGradient
-            colors={['#93c5fd', '#60a5fa']}
-            style={styles.statCard}
-          >
-            <View style={styles.statIcon}>
-              <Award size={20} color="#ffffff" />
-            </View>
-            <Text style={styles.statNumber}>8.5</Text>
-            <Text style={styles.statLabel}>CGPA</Text>
-          </LinearGradient>
-          
-          <LinearGradient
-            colors={['#fcd34d', '#fbbf24']}
-            style={styles.statCard}
-          >
-            <View style={styles.statIcon}>
-              <DollarSign size={20} color="#ffffff" />
-            </View>
-            <Text style={styles.statNumber}>₹2,500</Text>
-            <Text style={styles.statLabel}>Due Fees</Text>
-          </LinearGradient>
+
+
+        {/* Attendance Overview */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Attendance Overview</Text>
+            <Text style={styles.sectionSubtitle}>This month's performance</Text>
+          </View>
+          <TouchableOpacity style={styles.attendanceCard} onPress={() => router.push('attendance')}>
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.attendanceGradient}
+            >
+              <View style={styles.attendanceHeader}>
+                                 <View style={styles.attendanceIcon}>
+                   <Calendar size={18} color="#ffffff" />
+                 </View>
+                <View style={styles.attendanceStats}>
+                  <Text style={styles.attendancePercentage}>92%</Text>
+                  <Text style={styles.attendanceLabel}>Present</Text>
+                </View>
+              </View>
+              <View style={styles.attendanceDetails}>
+                <View style={styles.attendanceRow}>
+                  <View style={styles.attendanceItem}>
+                    <Text style={styles.attendanceNumber}>18</Text>
+                    <Text style={styles.attendanceText}>Days Present</Text>
+                  </View>
+                  <View style={styles.attendanceItem}>
+                    <Text style={styles.attendanceNumber}>2</Text>
+                    <Text style={styles.attendanceText}>Days Absent</Text>
+                  </View>
+                  <View style={styles.attendanceItem}>
+                    <Text style={styles.attendanceNumber}>20</Text>
+                    <Text style={styles.attendanceText}>Total Days</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.attendanceProgress}>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: '92%' }]} />
+                </View>
+                <Text style={styles.progressText}>92% attendance rate</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}
@@ -422,46 +434,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 20,
-    marginTop: -25,
-    marginBottom: 20,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#ffffff',
-    opacity: 0.9,
-    textAlign: 'center',
-  },
+
   section: {
     marginHorizontal: 20,
     marginBottom: 25,
@@ -604,5 +577,90 @@ const styles = StyleSheet.create({
   },
   statusDotActive: {
     backgroundColor: '#10b981',
+  },
+  // Attendance Styles
+  attendanceCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  attendanceGradient: {
+    padding: 16,
+  },
+  attendanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  attendanceIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attendanceStats: {
+    alignItems: 'flex-end',
+  },
+  attendancePercentage: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  attendanceLabel: {
+    fontSize: 11,
+    color: '#ffffff',
+    opacity: 0.9,
+  },
+  attendanceDetails: {
+    marginBottom: 12,
+  },
+  attendanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  attendanceItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  attendanceNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  attendanceText: {
+    fontSize: 10,
+    color: '#ffffff',
+    opacity: 0.8,
+    textAlign: 'center',
+  },
+  attendanceProgress: {
+    alignItems: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 3,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 10,
+    color: '#ffffff',
+    opacity: 0.9,
   },
 });

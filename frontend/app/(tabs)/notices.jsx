@@ -426,7 +426,7 @@ export default function NoticesScreen() {
         {notice.attachments && notice.attachments.length > 0 && (
           <View style={styles.attachmentsSection}>
             <Text style={styles.attachmentsTitle}>Attachments</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsContainer}>
+            <View style={styles.attachmentsContainer}>
               {notice.attachments.map((attachment, index) => (
                 <TouchableOpacity 
                   key={index} 
@@ -455,7 +455,7 @@ export default function NoticesScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
         )}
         
@@ -1284,23 +1284,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   attachmentsContainer: {
+    flexDirection: 'column',
     gap: 10,
   },
   attachmentCard: {
     borderRadius: 12,
     overflow: 'hidden',
-    marginRight: 10,
+    marginBottom: 10,
+    width: '100%',
   },
   attachmentCardGradient: {
     padding: 12,
-    minWidth: 100,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   attachmentCardImage: {
     width: 40,
     height: 40,
     borderRadius: 8,
-    marginBottom: 8,
   },
   attachmentCardDocument: {
     width: 40,
@@ -1309,15 +1311,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   attachmentCardContent: {
-    alignItems: 'center',
+    flex: 1,
+    marginLeft: 12,
   },
   attachmentCardName: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#ffffff',
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 4,
     fontWeight: '500',
   },

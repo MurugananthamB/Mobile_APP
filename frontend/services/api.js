@@ -17,6 +17,10 @@ class ApiService {
   async makeRequest(endpoint, options = {}) {
     try {
       const url = `${this.baseURL}${endpoint}`;
+      console.log('🌐 Full URL being called:', url);
+      console.log('🔧 Base URL:', this.baseURL);
+      console.log('📍 Endpoint:', endpoint);
+      
       const config = {
         headers: {
           'Content-Type': 'application/json',
@@ -43,10 +47,15 @@ class ApiService {
         headers: config.headers,
         body: config.body ? 'Present' : 'None'
       });
+      
+      console.log('🚀 Starting fetch request...');
       const response = await fetch(url, config);
-      const data = await response.json();
-
+      console.log('📡 Raw response received:', response);
       console.log('📡 Response status:', response.status);
+      console.log('📡 Response status text:', response.statusText);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const data = await response.json();
       console.log('📡 Response data:', data);
 
       if (!response.ok) {
@@ -293,6 +302,37 @@ class ApiService {
     return await this.makeRequest('/attendance/stats');
   }
 
+  // =============== DAY MANAGEMENT METHODS ===============
+  async getMarkedDays(month, year) {
+    const query = month && year ? `?month=${month}&year=${year}` : '';
+    return await this.makeRequest(`/attendance/marked-days${query}`);
+  }
+
+  async getDayManagement(month, year) {
+    const query = month && year ? `?month=${month}&year=${year}` : '';
+    return await this.makeRequest(`/attendance/day-management${query}`);
+  }
+
+  async addDayManagement(dayData) {
+    return await this.makeRequest('/attendance/day-management', {
+      method: 'POST',
+      body: JSON.stringify(dayData),
+    });
+  }
+
+  async removeDayManagement(date) {
+    return await this.makeRequest(`/attendance/day-management/${date}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateDayManagement(date, dayData) {
+    return await this.makeRequest(`/attendance/day-management/${date}`, {
+      method: 'PUT',
+      body: JSON.stringify(dayData),
+    });
+  }
+
   // =============== HOMEWORK METHODS ===============
   async getHomework() {
     return await this.makeRequest('/homework');
@@ -462,9 +502,45 @@ class ApiService {
   // =============== UTILITY METHODS ===============
   async testConnection() {
     try {
+      console.log('🧪 Testing connection to:', this.baseURL.replace('/api', ''));
       const response = await fetch(this.baseURL.replace('/api', ''));
+      console.log('🧪 Test response status:', response.status);
+      console.log('🧪 Test response ok:', response.ok);
       return response.ok;
     } catch (error) {
+      console.error('🧪 Test connection failed:', error);
+      return false;
+    }
+  }
+
+  // Test login endpoint specifically
+  async testLoginEndpoint() {
+    try {
+      console.log('🧪 Testing login endpoint...');
+      const testUrl = `${this.baseURL}/auth/login`;
+      console.log('🧪 Test URL:', testUrl);
+      
+      const response = await fetch(testUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userid: 'testuser', password: 'testpass' }),
+      });
+      
+      console.log('🧪 Login test response status:', response.status);
+      console.log('🧪 Login test response ok:', response.ok);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🧪 Login test successful:', data);
+        return true;
+      } else {
+        console.log('🧪 Login test failed with status:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('🧪 Login test error:', error);
       return false;
     }
   }

@@ -301,6 +301,133 @@ export default function ScheduleScreen() {
     });
   };
 
+<<<<<<< HEAD
+  // Attachment handling functions
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const file = result.assets[0];
+        
+        // Check file size (2MB limit)
+        if (file.size > 2 * 1024 * 1024) {
+          Alert.alert('File Too Large', 'Please select a file smaller than 2MB.');
+          return;
+        }
+
+        const attachment = {
+          name: file.name,
+          uri: file.uri,
+          size: file.size,
+          type: 'document',
+          mimeType: file.mimeType,
+        };
+
+        setNewSchedule(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, attachment]
+        }));
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const file = result.assets[0];
+        
+        // Check file size (2MB limit)
+        if (file.fileSize > 2 * 1024 * 1024) {
+          Alert.alert('Image Too Large', 'Please select an image smaller than 2MB.');
+          return;
+        }
+
+        const attachment = {
+          name: `image_${Date.now()}.jpg`,
+          uri: file.uri,
+          size: file.fileSize,
+          type: 'image',
+          mimeType: 'image/jpeg',
+        };
+
+        setNewSchedule(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, attachment]
+        }));
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const removeAttachment = (index) => {
+    setNewSchedule(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }));
+  };
+
+  const downloadAttachment = async (attachment) => {
+    try {
+      Alert.alert('Downloading', 'Please wait while we download your file...');
+      
+      if (Platform.OS === 'web') {
+        // For web platform, open the file in a new tab or trigger download
+        const link = document.createElement('a');
+        link.href = attachment.uri;
+        link.download = attachment.name || `attachment_${Date.now()}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        Alert.alert('Download Complete', `File "${attachment.name}" download has been initiated.`);
+      } else {
+        // For mobile platforms, use expo-file-system and expo-sharing
+        const fileName = attachment.name || `attachment_${Date.now()}`;
+        const fileExtension = attachment.mimeType ? attachment.mimeType.split('/')[1] : 'pdf';
+        const fileUri = `${FileSystem.documentDirectory}${fileName}.${fileExtension}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(
+          attachment.uri,
+          fileUri
+        );
+        
+        if (downloadResult.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: attachment.mimeType || 'application/octet-stream',
+              dialogTitle: `Download ${attachment.name}`,
+              UTI: 'public.item'
+            });
+          } else {
+            Alert.alert('Download Complete', `File "${attachment.name}" has been saved to your device.`);
+          }
+        } else {
+          Alert.alert('Download Failed', 'Failed to download the file. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+      Alert.alert('Error', 'Failed to download attachment');
+    }
+  };
   const closeAddModal = () => {
     setShowAddModal(false);
     resetForm();
@@ -449,12 +576,46 @@ export default function ScheduleScreen() {
         {item.attachments && item.attachments.length > 0 && (
           <View style={styles.attachmentsSection}>
             <Text style={styles.attachmentsTitle}>Attachments:</Text>
+<<<<<<< HEAD
+            <View style={styles.attachmentsContainer}>
+              {item.attachments.map((attachment, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.attachmentCard}
+                  onPress={() => downloadAttachment(attachment)}
+                >
+                  <LinearGradient
+                    colors={['#f8fafc', '#e2e8f0']}
+                    style={styles.attachmentCardGradient}
+                  >
+                    {attachment.type === 'image' ? (
+                      <Image source={{ uri: attachment.uri }} style={styles.attachmentThumbnail} />
+                    ) : (
+                      <View style={styles.attachmentDocument}>
+                        <File size={20} color="#667eea" />
+                      </View>
+                    )}
+                    <View style={styles.attachmentInfo}>
+                      <Text style={styles.attachmentName} numberOfLines={1}>
+                        {attachment.name}
+                      </Text>
+                      <Text style={styles.attachmentSize}>
+                        {(attachment.size / 1024 / 1024).toFixed(2)} MB
+                      </Text>
+                    </View>
+                    <Download size={16} color="#3b82f6" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
+=======
             {item.attachments.map((attachment, index) => (
               <TouchableOpacity key={index} style={styles.attachmentItem}>
                 <FileText size={16} color="#3b82f6" />
                 <Text style={styles.attachmentText}>{attachment.name}</Text>
               </TouchableOpacity>
             ))}
+>>>>>>> origin/main
           </View>
         )}
       </View>
@@ -833,6 +994,69 @@ export default function ScheduleScreen() {
                   />
                 </View>
               )}
+<<<<<<< HEAD
+
+              {/* Attachments Section */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Attachments (Optional)</Text>
+                <View style={styles.attachmentButtons}>
+                  <TouchableOpacity style={styles.attachmentButton} onPress={handlePickDocument}>
+                    <LinearGradient
+                      colors={['#667eea', '#764ba2']}
+                      style={styles.attachmentButtonGradient}
+                    >
+                      <File size={16} color="#ffffff" />
+                      <Text style={styles.attachmentButtonText}>Add Document</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.attachmentButton} onPress={handlePickImage}>
+                    <LinearGradient
+                      colors={['#10b981', '#059669']}
+                      style={styles.attachmentButtonGradient}
+                    >
+                      <ImageIcon size={16} color="#ffffff" />
+                      <Text style={styles.attachmentButtonText}>Add Image</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+                
+                {newSchedule.attachments.length > 0 && (
+                  <View style={styles.attachmentsList}>
+                    {newSchedule.attachments.map((attachment, index) => (
+                      <View key={index} style={styles.attachmentItem}>
+                        <LinearGradient
+                          colors={['#f3f4f6', '#e5e7eb']}
+                          style={styles.attachmentItemGradient}
+                        >
+                          {attachment.type === 'image' ? (
+                            <Image source={{ uri: attachment.uri }} style={styles.attachmentThumbnail} />
+                          ) : (
+                            <View style={styles.attachmentDocument}>
+                              <File size={20} color="#667eea" />
+                            </View>
+                          )}
+                          <View style={styles.attachmentInfo}>
+                            <Text style={styles.attachmentName} numberOfLines={1}>
+                              {attachment.name}
+                            </Text>
+                            <Text style={styles.attachmentSize}>
+                              {(attachment.size / 1024 / 1024).toFixed(2)} MB
+                            </Text>
+                          </View>
+                          <TouchableOpacity 
+                            style={styles.removeAttachmentButton}
+                            onPress={() => removeAttachment(index)}
+                          >
+                            <Trash2 size={16} color="#ef4444" />
+                          </TouchableOpacity>
+                        </LinearGradient>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+=======
+>>>>>>> origin/main
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -1258,6 +1482,37 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     marginLeft: 8,
   },
+<<<<<<< HEAD
+  attachmentThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  attachmentDocument: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e0e7ff',
+  },
+  attachmentInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  attachmentName: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+=======
+>>>>>>> origin/main
   scheduleFooter: {
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
@@ -1580,4 +1835,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2937',
   },
+<<<<<<< HEAD
+  attachmentButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+  },
+  attachmentButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  attachmentButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  attachmentButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  attachmentsList: {
+    gap: 10,
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  attachmentItemGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  attachmentThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  attachmentDocument: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e0e7ff',
+  },
+  attachmentInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  attachmentName: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  removeAttachmentButton: {
+    padding: 5,
+  },
+  attachmentsContainer: {
+    gap: 10,
+  },
+  attachmentCard: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  attachmentCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+=======
+>>>>>>> origin/main
 }); 

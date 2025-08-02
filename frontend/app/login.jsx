@@ -22,12 +22,18 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
+      console.log('🔍 Starting login process...');
+      console.log('🔍 Student ID:', studentId);
+      console.log('🔍 Password:', password ? '***' : 'empty');
+      
       const response = await ApiService.login(studentId, password);
       
+      console.log('✅ Login successful:', response);
       // Redirect to home page immediately on successful login
       router.replace('/(tabs)');
       
     } catch (error) {
+      console.error('❌ Login error:', error);
       Alert.alert(
         'Login Failed',
         error.message || 'Invalid credentials. Please check your Student ID and Password.',
@@ -37,6 +43,8 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
+
+
 
   const handleForgotPassword = () => {
     Alert.alert(
@@ -162,9 +170,11 @@ export default function LoginScreen() {
             {/* Demo Credentials */}
             <View style={styles.demoContainer}>
               <Text style={styles.demoTitle}>Demo Credentials</Text>
-              <Text style={styles.demoText}>Try: Any userid and password</Text>
+              <Text style={styles.demoText}>Try: testuser / testpass</Text>
               <Text style={styles.demoText}>Backend will create user if not exists</Text>
             </View>
+
+
           </View>
         </View>
       </LinearGradient>
@@ -335,4 +345,5 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     textAlign: 'center',
   },
+
 });

@@ -792,7 +792,7 @@ export default function HomeworkScreen() {
             </View>
           )}
           
-          {/* Date Selector */}
+          <br></br> {/* Date Selector */}
           <TouchableOpacity 
             style={styles.dateSelector}
             onPress={() => setShowCalendar(!showCalendar)}

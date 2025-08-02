@@ -8,7 +8,7 @@ const attendanceRecordSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['present', 'absent', 'late', 'holiday'],
+    enum: ['present', 'absent', 'late', 'holiday', 'leave', 'working'],
     required: true,
   },
   checkInTime: {
@@ -52,6 +52,18 @@ const attendanceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  holidayDays: {
+    type: Number,
+    default: 0,
+  },
+  leaveDays: {
+    type: Number,
+    default: 0,
+  },
+  workingDays: {
+    type: Number,
+    default: 0,
+  },
   percentage: {
     type: Number,
     default: 0,
@@ -63,11 +75,16 @@ const attendanceSchema = new mongoose.Schema({
 
 // Calculate statistics before saving
 attendanceSchema.pre('save', function(next) {
-  const workingDays = this.records.filter(record => record.status !== 'holiday');
+  const workingDays = this.records.filter(record => 
+    record.status !== 'holiday' && record.status !== 'leave'
+  );
   this.totalDays = workingDays.length;
   this.presentDays = this.records.filter(record => record.status === 'present').length;
   this.absentDays = this.records.filter(record => record.status === 'absent').length;
   this.lateDays = this.records.filter(record => record.status === 'late').length;
+  this.holidayDays = this.records.filter(record => record.status === 'holiday').length;
+  this.leaveDays = this.records.filter(record => record.status === 'leave').length;
+  this.workingDays = this.records.filter(record => record.status === 'working').length;
   
   if (this.totalDays > 0) {
     this.percentage = Math.round((this.presentDays + this.lateDays) / this.totalDays * 100);
@@ -76,4 +93,39 @@ attendanceSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Attendance', attendanceSchema); 
+// Day Management Schema for holidays, leave, and working days
+const dayManagementSchema = new mongoose.Schema({
+  date: {
+    type: Date,
+    required: true,
+    unique: true,
+  },
+  dayType: {
+    type: String,
+    enum: ['holiday', 'leave', 'working'],
+    required: true,
+  },
+  holidayType: {
+    type: String,
+    enum: ['students', 'staff', 'both'],
+    default: 'both',
+  },
+  description: {
+    type: String,
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+}, {
+  timestamps: true,
+});
+
+// Create compound index for date uniqueness
+dayManagementSchema.index({ date: 1 }, { unique: true });
+
+module.exports = {
+  Attendance: mongoose.model('Attendance', attendanceSchema),
+  DayManagement: mongoose.model('DayManagement', dayManagementSchema)
+}; 

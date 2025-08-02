@@ -123,7 +123,7 @@ export default function HomeScreen() {
   // Show loading state while fetching user data
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -150,7 +150,7 @@ export default function HomeScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient
@@ -348,8 +348,8 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
@@ -430,44 +430,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-<<<<<<< HEAD
-=======
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 20,
-    marginTop: -25,
-    marginBottom: 20,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
->>>>>>> origin/main
+
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   section: {
-    marginHorizontal: 20,
-    marginBottom: 25,
+    marginHorizontal: 16,
+    marginBottom: 20,
   },
   sectionHeader: {
     marginBottom: 15,
@@ -489,24 +460,24 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     width: '30%',
-    marginBottom: 15,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   actionTitle: {
     fontSize: 12,

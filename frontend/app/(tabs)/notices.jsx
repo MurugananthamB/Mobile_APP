@@ -484,7 +484,7 @@ export default function NoticesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <LinearGradient
         colors={['#667eea', '#764ba2']}
@@ -945,10 +945,10 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 25,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   headerContent: {
     flexDirection: 'row',
@@ -1004,8 +1004,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',

@@ -1451,8 +1451,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   profileHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -1494,8 +1494,8 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   section: {
-    marginHorizontal: 20,
-    marginBottom: 25,
+    marginHorizontal: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,

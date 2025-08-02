@@ -83,7 +83,7 @@ export default function FeesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Custom Header */}
       <View style={styles.customHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -207,8 +207,8 @@ const styles = StyleSheet.create({
   customHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   //   alignItems: 'center',
   // },
   summaryContainer: {
-    margin: 20,
+    margin: 16,
   },
   summaryCard: {
     backgroundColor: '#ffffff',
@@ -287,8 +287,8 @@ const styles = StyleSheet.create({
     color: '#78350f',
   },
   section: {
-    marginHorizontal: 20,
-    marginBottom: 25,
+    marginHorizontal: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,

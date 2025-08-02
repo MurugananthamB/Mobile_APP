@@ -5,7 +5,7 @@ const TabIcon = ({ IconComponent, color }) => {
   if (!IconComponent) {
     return null;
   }
-  return <IconComponent size={24} color={color} />;
+  return <IconComponent size={22} color={color} />;
 };
 
 export default function TabLayout() {
@@ -20,12 +20,29 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
           paddingBottom: 10,
-          paddingTop: 10,
+          paddingTop: 8,
           height: 70,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '500',
+          marginTop: 2,
+          textAlign: 'center',
+        },
+        tabBarIconStyle: {
+          marginBottom: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 6,
         },
       }}
     >
@@ -33,28 +50,36 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <TabIcon IconComponent={Home} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon IconComponent={Home} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="fees"
         options={{
           title: 'Fees',
-          tabBarIcon: ({ color }) => <TabIcon IconComponent={DollarSign} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon IconComponent={DollarSign} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="attendance"
         options={{
           title: 'Attendance',
-          tabBarIcon: ({ color }) => <TabIcon IconComponent={Calendar} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon IconComponent={Calendar} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="notices"
         options={{
           title: 'Circular',
-          tabBarIcon: ({ color }) => <TabIcon IconComponent={Bell} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon IconComponent={Bell} color={color} />
+          ),
         }}
       />
     </Tabs>

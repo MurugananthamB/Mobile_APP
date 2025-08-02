@@ -9,23 +9,23 @@ export default function RootLayout() {
     <>
       <Stack
         screenOptions={{
-          headerShown: true,
-          headerTitleAlign: 'center',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerShown: false,
+          contentStyle: { backgroundColor: '#f8fafc' },
         }}
       >
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />{/* Added register screen */} 
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ title: 'Profile' }} />
-        <Stack.Screen name="attendance" options={{ title: 'Attendance' }} />
-        <Stack.Screen name="fees" options={{ title: 'Fees' }} />
-        <Stack.Screen name="timetable" options={{ title: 'Timetable' }} />
-        <Stack.Screen name="notices" options={{ title: 'Notices' }} />
-        <Stack.Screen name="results" options={{ title: 'Results' }} />
-        <Stack.Screen name="homework" options={{ title: 'Homework' }} />
-        <Stack.Screen name="events" options={{ title: 'Events' }} />
-        <Stack.Screen name="hostel" options={{ title: 'Hostel' }} />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="attendance" />
+        <Stack.Screen name="fees" />
+        <Stack.Screen name="timetable" />
+        <Stack.Screen name="notices" />
+        <Stack.Screen name="results" />
+        <Stack.Screen name="homework" />
+        <Stack.Screen name="events" />
+        <Stack.Screen name="hostel" />
+        <Stack.Screen name="hostel-attendance" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

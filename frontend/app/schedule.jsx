@@ -301,6 +301,7 @@ export default function ScheduleScreen() {
     });
   };
 
+<<<<<<< HEAD
   // Attachment handling functions
   const handlePickDocument = async () => {
     try {
@@ -427,7 +428,6 @@ export default function ScheduleScreen() {
       Alert.alert('Error', 'Failed to download attachment');
     }
   };
-
   const closeAddModal = () => {
     setShowAddModal(false);
     resetForm();
@@ -576,6 +576,7 @@ export default function ScheduleScreen() {
         {item.attachments && item.attachments.length > 0 && (
           <View style={styles.attachmentsSection}>
             <Text style={styles.attachmentsTitle}>Attachments:</Text>
+<<<<<<< HEAD
             <View style={styles.attachmentsContainer}>
               {item.attachments.map((attachment, index) => (
                 <TouchableOpacity 
@@ -607,6 +608,14 @@ export default function ScheduleScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+=======
+            {item.attachments.map((attachment, index) => (
+              <TouchableOpacity key={index} style={styles.attachmentItem}>
+                <FileText size={16} color="#3b82f6" />
+                <Text style={styles.attachmentText}>{attachment.name}</Text>
+              </TouchableOpacity>
+            ))}
+>>>>>>> origin/main
           </View>
         )}
       </View>
@@ -985,6 +994,7 @@ export default function ScheduleScreen() {
                   />
                 </View>
               )}
+<<<<<<< HEAD
 
               {/* Attachments Section */}
               <View style={styles.inputGroup}>
@@ -1045,6 +1055,8 @@ export default function ScheduleScreen() {
                   </View>
                 )}
               </View>
+=======
+>>>>>>> origin/main
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -1470,6 +1482,7 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     marginLeft: 8,
   },
+<<<<<<< HEAD
   attachmentThumbnail: {
     width: 40,
     height: 40,
@@ -1498,6 +1511,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
   },
+=======
+>>>>>>> origin/main
   scheduleFooter: {
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
@@ -1820,6 +1835,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1f2937',
   },
+<<<<<<< HEAD
   attachmentButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1913,4 +1929,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
   },
+=======
+>>>>>>> origin/main
 }); 

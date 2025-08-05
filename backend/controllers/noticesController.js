@@ -1,5 +1,6 @@
 // controllers/noticesController.js
 const Notice = require('../models/notices');
+const NotificationService = require('../services/notificationService');
 
 // Get all notices
 exports.getNotices = async (req, res) => {
@@ -46,6 +47,15 @@ exports.createNotice = async (req, res) => {
 
     const newNotice = new Notice(noticeData);
     await newNotice.save();
+
+    // Send notifications to all users
+    try {
+      await NotificationService.notifyNewNotice(newNotice);
+      console.log('📱 Notifications sent for new notice');
+    } catch (notificationError) {
+      console.error('⚠️ Error sending notifications:', notificationError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json({ 
       success: true, 

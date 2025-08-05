@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // Base URL for your backend
 // For React Native, use your computer's IP address instead of localhost
 const BASE_URL = __DEV__ 
-  ? 'https://5000-firebase-mobileappgit-1754119877028.cluster-iktsryn7xnhpexlu6255bftka4.cloudworkstations.dev/api'  // Development backend URL
+  ? 'http://localhost:5000/api'  // Development backend URL
   : 'https://mobile-app-5diq.onrender.com/api'; // Production backend URL
 
 class ApiService {
@@ -132,7 +132,7 @@ class ApiService {
     });
   }
 
-  // Upload profile image
+  // Upload profile image (convert to base64 and send to server)
   async uploadProfileImage(imageUri) {
     try {
       console.log('📤 Starting image upload...');
@@ -145,77 +145,61 @@ class ApiService {
         throw new Error('No image URI provided');
       }
 
-      const formData = new FormData();
+      // Convert image to base64
+      let base64Data;
       
-      // Platform-specific file handling
       if (Platform.OS === 'web') {
-        console.log('📤 Web platform detected, handling file upload');
+        console.log('📤 Web platform detected, converting blob to base64');
         
         try {
-          // For web, we need to fetch the file from the blob URL
-          console.log('📤 Fetching blob from URI:', imageUri);
+          // For web, fetch the blob and convert to base64
           const response = await fetch(imageUri);
-          console.log('📤 Fetch response status:', response.status);
-          
           if (!response.ok) {
             throw new Error(`Failed to fetch blob: ${response.status}`);
           }
           
           const blob = await response.blob();
-          console.log('📤 Blob created:', {
-            size: blob.size,
-            type: blob.type
-          });
+          const arrayBuffer = await blob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          base64Data = btoa(String.fromCharCode(...uint8Array));
+          base64Data = `data:${blob.type};base64,${base64Data}`;
           
-          const imageFile = new File([blob], 'profile-image.jpg', { type: 'image/jpeg' });
-          console.log('📤 Web file created:', {
-            name: imageFile.name,
-            size: imageFile.size,
-            type: imageFile.type
-          });
-          
-          formData.append('profileImage', imageFile);
-          console.log('📤 FormData appended with web file');
+          console.log('📤 Web image converted to base64 (length):', base64Data.length);
         } catch (webError) {
-          console.error('❌ Web file processing error:', webError);
-          throw new Error(`Failed to process web file: ${webError.message}`);
+          console.error('❌ Web image processing error:', webError);
+          throw new Error(`Failed to process web image: ${webError.message}`);
         }
       } else {
-        // Mobile platform - handle both string URI and object
-        let imageFile;
-        if (typeof imageUri === 'string') {
-          // If it's a string URI (from image picker)
-          imageFile = {
-            uri: imageUri,
-            type: 'image/jpeg',
-            name: 'profile-image.jpg',
-          };
-        } else if (imageUri && imageUri.uri) {
-          // If it's an object with uri property (from camera)
-          imageFile = {
-            uri: imageUri.uri,
-            type: imageUri.type || 'image/jpeg',
-            name: imageUri.fileName || 'profile-image.jpg',
-          };
-        } else {
-          throw new Error('Invalid image URI format');
-        }
+        // Mobile platform - convert image to base64
+        console.log('📤 Mobile platform detected, converting image to base64');
         
-        console.log('📤 Mobile image file object:', imageFile);
-        formData.append('profileImage', imageFile);
+        try {
+          // For React Native with Expo, use expo-file-system
+          const FileSystem = require('expo-file-system');
+          
+          // Get the file path from the URI
+          let filePath = imageUri;
+          if (typeof imageUri === 'object' && imageUri.uri) {
+            filePath = imageUri.uri;
+          }
+          
+          // Read file as base64
+          base64Data = await FileSystem.readAsStringAsync(filePath, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          base64Data = `data:image/jpeg;base64,${base64Data}`;
+          
+          console.log('📤 Mobile image converted to base64 (length):', base64Data.length);
+        } catch (mobileError) {
+          console.error('❌ Mobile image processing error:', mobileError);
+          throw new Error(`Failed to process mobile image: ${mobileError.message}`);
+        }
       }
 
-      console.log('📤 FormData created');
-      console.log('📤 FormData entries count:', formData._parts ? formData._parts.length : 'Unknown');
+      console.log('📤 Base64 data prepared');
       
-      // Debug FormData contents
-      if (formData._parts) {
-        console.log('📤 FormData parts:', formData._parts);
-      }
-
       const token = await this.getStoredToken();
       console.log('🔑 Token available for upload:', !!token);
-      console.log('🔑 Token length:', token ? token.length : 0);
       
       const uploadUrl = `${this.baseURL}/protected/profile/image`;
       console.log('📤 Upload URL:', uploadUrl);
@@ -224,9 +208,9 @@ class ApiService {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // Remove Content-Type header for FormData
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({ imageData: base64Data }),
       };
 
       console.log('📤 Request config:', {
@@ -236,36 +220,38 @@ class ApiService {
       });
 
       const response = await fetch(uploadUrl, requestConfig);
-
-      console.log('📤 Upload response status:', response.status);
-      console.log('📤 Upload response status text:', response.statusText);
-      console.log('📤 Upload response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📤 Response status:', response.status);
+      console.log('📤 Response headers:', response.headers);
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (parseError) {
-          console.log('❌ Could not parse error response as JSON');
-          const textResponse = await response.text();
-          console.log('❌ Text response:', textResponse);
-          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-        }
-        
-        console.error('❌ Upload failed:', errorData);
-        throw new Error(errorData.message || `Upload failed with status ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Upload failed:', errorText);
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
       console.log('✅ Upload successful:', result);
+      
       return result;
     } catch (error) {
-      console.error('❌ Upload error:', error);
-      console.error('❌ Upload error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+      console.error('❌ Image upload error:', error);
+      throw error;
+    }
+  }
+
+  // Delete profile image
+  async deleteProfileImage() {
+    try {
+      console.log('🗑️ Starting profile image deletion...');
+      
+      const response = await this.makeRequest('/protected/profile/image', {
+        method: 'DELETE',
       });
+      
+      console.log('🗑️ Delete response:', response);
+      return response;
+    } catch (error) {
+      console.error('🗑️ Profile image deletion error:', error);
       throw error;
     }
   }
@@ -508,50 +494,6 @@ class ApiService {
   }
 
   // =============== UTILITY METHODS ===============
-  async testConnection() {
-    try {
-      console.log('🧪 Testing connection to:', this.baseURL.replace('/api', ''));
-      const response = await fetch(this.baseURL.replace('/api', ''));
-      console.log('🧪 Test response status:', response.status);
-      console.log('🧪 Test response ok:', response.ok);
-      return response.ok;
-    } catch (error) {
-      console.error('🧪 Test connection failed:', error);
-      return false;
-    }
-  }
-
-  // Test login endpoint specifically
-  async testLoginEndpoint() {
-    try {
-      console.log('🧪 Testing login endpoint...');
-      const testUrl = `${this.baseURL}/auth/login`;
-      console.log('🧪 Test URL:', testUrl);
-      
-      const response = await fetch(testUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userid: 'testuser', password: 'testpass' }),
-      });
-      
-      console.log('🧪 Login test response status:', response.status);
-      console.log('🧪 Login test response ok:', response.ok);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🧪 Login test successful:', data);
-        return true;
-      } else {
-        console.log('🧪 Login test failed with status:', response.status);
-        return false;
-      }
-    } catch (error) {
-      console.error('🧪 Login test error:', error);
-      return false;
-    }
-  }
 
   // Upload file (for homework submissions, etc.)
   async uploadFile(file, type = 'homework') {
@@ -573,6 +515,37 @@ class ApiService {
     }
 
     return await response.json();
+  }
+
+  // =============== NOTIFICATION METHODS ===============
+  async getNotifications(limit = 20, skip = 0, unreadOnly = false) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit);
+    if (skip) params.append('skip', skip);
+    if (unreadOnly) params.append('unreadOnly', 'true');
+    
+    return await this.makeRequest(`/notifications?${params.toString()}`);
+  }
+
+  async getUnreadNotificationCount() {
+    return await this.makeRequest('/notifications/unread-count');
+  }
+
+  async markNotificationAsRead(notificationId) {
+    return await this.makeRequest(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  async markAllNotificationsAsRead() {
+    return await this.makeRequest('/notifications/mark-all-read', {
+      method: 'PUT',
+    });
+  }
+
+  async getNotificationStats(type = null) {
+    const params = type ? `?type=${type}` : '';
+    return await this.makeRequest(`/notifications/stats${params}`);
   }
 }
 

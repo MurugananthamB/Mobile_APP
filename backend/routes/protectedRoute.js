@@ -3,155 +3,59 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorizeRoles } = require('../middlewares/authMiddleware');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/profile-images';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    console.log('📸 Multer fileFilter called');
-    console.log('📸 File details:', {
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-      fieldname: file.fieldname
-    });
-    console.log('📸 Request headers in fileFilter:', {
-      'content-type': req.headers['content-type'],
-      'content-length': req.headers['content-length']
-    });
-    
-    if (file.mimetype.startsWith('image/')) {
-      console.log('✅ File type accepted');
-      cb(null, true);
-    } else {
-      console.log('❌ File type rejected:', file.mimetype);
-      cb(new Error('Only image files are allowed!'), false);
-    }
-  }
-});
 
 // Only logged-in users (any role)
 router.get('/profile', protect, (req, res) => {
   res.json({ message: 'User profile', user: req.user });
 });
 
-// Update profile data
+// Update profile information
 router.put('/profile', protect, async (req, res) => {
   try {
-    const User = require('../models/user');
-    const { 
-      name, 
-      email, 
-      phone, 
-      address, 
-      dateOfBirth, 
-      bloodGroup, 
-      parentName, 
-      parentPhone, 
-      emergencyContact,
-      rollNo,
-      assignedClass,
-      assignedSection,
-      qualification,
-      subject,
-      department,
-      position,
-      experience,
-      profileImage,
-      // Hostel information fields
-      hostelRoom,
-      hostelBlock,
-      hostelFloor,
-      hostelWarden,
-      hostelWardenPhone,
-      hostelCheckInDate,
-      hostelCheckOutDate,
-      isHostelResident
-    } = req.body;
-
-    // Validate required fields
-    if (!name || !email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Name and email are required fields' 
-      });
-    }
-
-    // Check if email is already taken by another user
-    const existingUser = await User.findOne({ 
-      email: email, 
-      _id: { $ne: req.user.id } 
-    });
+    console.log('📝 Profile update request received');
+    console.log('📝 Request body:', req.body);
     
-    if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is already taken by another user' 
-      });
-    }
-
-    // Update user profile
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      {
-        name,
-        email,
-        phone,
-        address,
-        dateOfBirth,
-        bloodGroup,
-        parentName,
-        parentPhone,
-        emergencyContact,
-        rollNo,
-        assignedClass,
-        assignedSection,
-        qualification,
-        subject,
-        department,
-        position,
-        experience,
-        profileImage,
-        // Hostel information
-        hostelRoom,
-        hostelBlock,
-        hostelFloor,
-        hostelWarden,
-        hostelWardenPhone,
-        hostelCheckInDate,
-        hostelCheckOutDate,
-        isHostelResident
-      },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedUser) {
+    const User = require('../models/user');
+    
+    // Get current user
+    const currentUser = await User.findById(req.user.id);
+    if (!currentUser) {
+      console.log('❌ User not found');
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 
       });
     }
 
+    // Update allowed fields
+    const allowedUpdates = ['name', 'email', 'phone', 'address'];
+    const updates = {};
+    
+    allowedUpdates.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    console.log('📝 Updates to apply:', updates);
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      console.log('❌ User not found for update');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    console.log('✅ Profile updated successfully');
+    console.log('✅ Updated user:', updatedUser.getSafeData());
+    
     res.json({ 
       success: true, 
       message: 'Profile updated successfully',
@@ -167,71 +71,41 @@ router.put('/profile', protect, async (req, res) => {
   }
 });
 
-// Upload profile image
-router.post('/profile/image', protect, upload.single('profileImage'), async (req, res) => {
+// Update profile image (store as base64 in database)
+router.post('/profile/image', protect, async (req, res) => {
   try {
-    console.log('📸 Profile image upload request received');
-    console.log('📸 Request method:', req.method);
-    console.log('📸 Request URL:', req.url);
-    console.log('📸 Request headers:', {
-      'content-type': req.headers['content-type'],
-      'authorization': req.headers.authorization ? 'Present' : 'Missing',
-      'content-length': req.headers['content-length'],
-      'user-agent': req.headers['user-agent']
-    });
+    console.log('📸 Profile image update request received');
     console.log('📸 Request body keys:', Object.keys(req.body));
-    console.log('📸 Request file:', req.file ? {
-      fieldname: req.file.fieldname,
-      originalname: req.file.originalname,
-      encoding: req.file.encoding,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      destination: req.file.destination,
-      filename: req.file.filename,
-      path: req.file.path
-    } : 'No file');
-
-    if (!req.file) {
-      console.log('❌ No file uploaded');
-      console.log('❌ Multer error:', req.multerError);
+    
+    const { imageData } = req.body;
+    
+    if (!imageData) {
+      console.log('❌ No image data provided');
       return res.status(400).json({ 
         success: false, 
-        message: 'No image file provided' 
+        message: 'No image data provided' 
       });
     }
 
-    console.log('📸 File details:', {
-      filename: req.file.filename,
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      path: req.file.path
-    });
-
-    // Check if file exists on disk
-    const fs = require('fs');
-    if (fs.existsSync(req.file.path)) {
-      console.log('✅ File exists on disk');
-      const stats = fs.statSync(req.file.path);
-      console.log('📸 File stats:', {
-        size: stats.size,
-        created: stats.birthtime,
-        modified: stats.mtime
-      });
-    } else {
-      console.log('❌ File does not exist on disk');
-    }
+    console.log('📸 Image data received (length):', imageData ? imageData.length : 0);
 
     const User = require('../models/user');
     
-    // Update user's profile image
-    const imageUrl = `/uploads/profile-images/${req.file.filename}`;
-    console.log('📸 Image URL:', imageUrl);
+    // Get current user
+    const currentUser = await User.findById(req.user.id);
+    if (!currentUser) {
+      console.log('❌ User not found');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
     
+    // Update user's profile image (store as base64)
     console.log('📸 Updating user profile image for user ID:', req.user.id);
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      { profileImage: imageUrl },
+      { profileImage: imageData },
       { new: true }
     );
 
@@ -244,16 +118,15 @@ router.post('/profile/image', protect, upload.single('profileImage'), async (req
     }
 
     console.log('✅ Profile image updated successfully');
-    console.log('✅ Updated user profile image:', updatedUser.profileImage);
+    console.log('✅ Image data stored (length):', updatedUser.profileImage ? updatedUser.profileImage.length : 0);
     
     res.json({ 
       success: true, 
-      message: 'Profile image uploaded successfully',
-      imageUrl: imageUrl,
+      message: 'Profile image updated successfully',
       user: updatedUser.getSafeData()
     });
   } catch (error) {
-    console.error('❌ Profile image upload error:', error);
+    console.error('❌ Profile image update error:', error);
     console.error('❌ Error details:', {
       name: error.name,
       message: error.message,
@@ -261,7 +134,56 @@ router.post('/profile/image', protect, upload.single('profileImage'), async (req
     });
     res.status(500).json({ 
       success: false, 
-      message: 'Server error uploading image',
+      message: 'Server error updating image',
+      error: error.message 
+    });
+  }
+});
+
+// Delete profile image
+router.delete('/profile/image', protect, async (req, res) => {
+  try {
+    console.log('🗑️ Profile image deletion request received');
+    
+    const User = require('../models/user');
+    
+    // Get current user
+    const currentUser = await User.findById(req.user.id);
+    if (!currentUser) {
+      console.log('❌ User not found');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Remove profile image from user document
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $unset: { profileImage: 1 } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      console.log('❌ User not found for update');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    console.log('✅ Profile image deleted successfully');
+    
+    res.json({ 
+      success: true, 
+      message: 'Profile image deleted successfully',
+      user: updatedUser.getSafeData()
+    });
+  } catch (error) {
+    console.error('❌ Profile image deletion error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error deleting image',
       error: error.message 
     });
   }

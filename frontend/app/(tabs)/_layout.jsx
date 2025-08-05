@@ -5,7 +5,7 @@ const TabIcon = ({ IconComponent, color }) => {
   if (!IconComponent) {
     return null;
   }
-  return <IconComponent size={22} color={color} />;
+  return <IconComponent size={24} color={color} />;
 };
 
 export default function TabLayout() {
@@ -19,31 +19,15 @@ export default function TabLayout() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
+          height: 85,
           paddingBottom: 10,
-          paddingTop: 8,
-          height: 70,
-          elevation: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
+          paddingTop: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: '500',
-          marginTop: 2,
-          textAlign: 'center',
         },
-        tabBarIconStyle: {
-          marginBottom: 0,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        tabBarItemStyle: {
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 6,
-        },
+        tabBarShowLabel: true,
       }}
     >
       <Tabs.Screen

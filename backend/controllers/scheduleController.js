@@ -1,6 +1,7 @@
 // controllers/scheduleController.js
 const Schedule = require('../models/schedule');
 const User = require('../models/user');
+const NotificationService = require('../services/notificationService');
 
 // Get all schedules for the user based on their role and class
 // Everyone can fetch created data, but filtered based on their role and assignments
@@ -230,6 +231,15 @@ exports.createSchedule = async (req, res) => {
     const savedSchedule = await newSchedule.save();
 
     console.log('✅ Schedule created successfully:', savedSchedule._id);
+
+    // Send notifications to relevant users
+    try {
+      await NotificationService.notifyScheduleUpdate(savedSchedule);
+      console.log('📱 Notifications sent for new schedule');
+    } catch (notificationError) {
+      console.error('⚠️ Error sending notifications:', notificationError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json({
       success: true,

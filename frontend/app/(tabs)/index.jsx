@@ -10,16 +10,21 @@ export default function HomeScreen() {
   const router = useRouter();
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [imageRefreshKey, setImageRefreshKey] = useState(0);
 
   // Fetch user profile data on mount
   useEffect(() => {
     fetchUserProfile();
+    fetchUnreadCount();
   }, []);
 
   // Refresh user data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      console.log('🏠 Home - Screen focused, refreshing profile data...');
       fetchUserProfile();
+      fetchUnreadCount();
     }, [])
   );
 
@@ -43,6 +48,8 @@ export default function HomeScreen() {
       
       console.log('🏠 Home - Combined user data:', combinedUserData);
       setUserInfo(combinedUserData);
+      // Force image refresh when profile data is updated
+      setImageRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('🏠 Home - Error fetching user profile:', error);
       // Fallback to stored data only
@@ -50,6 +57,17 @@ export default function HomeScreen() {
       setUserInfo(storedUserData);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await ApiService.getUnreadNotificationCount();
+      if (response.success) {
+        setUnreadCount(response.data.count);
+      }
+    } catch (error) {
+      console.error('🏠 Home - Error fetching unread count:', error);
     }
   };
 
@@ -65,6 +83,17 @@ export default function HomeScreen() {
       await ApiService.logout();
       router.replace('/login');
     }
+  };
+
+  const handleNotificationPress = () => {
+    router.push('/notifications');
+  };
+
+  // Manual refresh function that can be called from other screens
+  const refreshProfileData = () => {
+    console.log('🏠 Home - Manual profile refresh triggered');
+    fetchUserProfile();
+    fetchUnreadCount();
   };
 
   // Get user display info with proper image URL construction, memoized for performance
@@ -94,15 +123,18 @@ export default function HomeScreen() {
       subtitle = userInfo.email || userInfo.userid || '';
     }
     
-    // Construct profile image URL properly
+    // Handle profile image - now supports base64 data
     let profileImageUrl = null;
     if (userInfo.profileImage) {
-      // If profileImage is already a full URL, use it directly
-      if (userInfo.profileImage.startsWith('http')) {
+      // Check if it's a base64 data URL
+      if (userInfo.profileImage.startsWith('data:image/')) {
+        profileImageUrl = userInfo.profileImage;
+      } else if (userInfo.profileImage.startsWith('http')) {
+        // If profileImage is already a full URL, use it directly
         profileImageUrl = `${userInfo.profileImage}?t=${Date.now()}`;
       } else {
-        // If it's a path, construct the full URL
-        const baseUrl = ApiService.BASE_URL; // Use BASE_URL from api.js
+        // If it's a path, construct the full URL using API service base URL
+        const baseUrl = ApiService.baseURL.replace('/api', '');
         profileImageUrl = `${baseUrl}${userInfo.profileImage}?t=${Date.now()}`;
       }
     }
@@ -111,8 +143,8 @@ export default function HomeScreen() {
       name,
       subtitle,
       role: userInfo.role,
-      profileImageUrl,
-      originalProfileImage: userInfo.profileImage
+      profileImageUrl: profileImageUrl ? 'Set' : 'Not set',
+      originalProfileImage: userInfo.profileImage ? 'Present' : 'Not present'
     });
     
     return { name, subtitle, profileImageUrl };
@@ -161,9 +193,8 @@ export default function HomeScreen() {
             <View style={styles.userInfo}>
                 <View style={styles.profileContainer}>
                   <Image
-                    source={{ 
-                      uri: displayInfo.profileImageUrl || 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400' 
-                    }}
+                    key={`profile-${userInfo?.profileImage || 'default'}-${imageRefreshKey}`}
+                    source={displayInfo.profileImageUrl ? { uri: displayInfo.profileImageUrl } : require('../../assets/images/icon.png')}
                     style={styles.profileImage}
                     onError={(error) => {
                       console.log('🏠 Home - Profile image load error:', error);
@@ -178,9 +209,15 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.notificationButton}>
+              <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
                 <Bell size={24} color="#ffffff" />
-                <View style={styles.notificationBadge} />
+                {unreadCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
               <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                 <LogOut size={24} color="#ffffff" />
@@ -421,10 +458,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   logoutButton: {
     width: 44,

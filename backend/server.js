@@ -15,6 +15,7 @@ const homeworkRoutes = require('./routes/homeworkRoutes');
 const eventsRoutes = require('./routes/eventsRoutes');
 const noticesRoutes = require('./routes/noticesRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -36,7 +37,7 @@ connectDB().catch(err => {
 
 // Enable CORS with explicit options
 app.use(cors({
-  origin: 'https://8081-firebase-mobileappgit-1754119877028.cluster-iktsryn7xnhpexlu6255bftka4.cloudworkstations.dev',
+  origin: 'http://localhost:8081',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
@@ -45,9 +46,6 @@ app.use(cors({
 // Middleware to parse JSON and form data with large limits
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-
-// Serve static files from /uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Log incoming requests (for development)
 app.use((req, res, next) => {
@@ -64,6 +62,7 @@ app.use('/api/homework', homeworkRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/notices', noticesRoutes);
 app.use('/api/schedules', scheduleRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Root Route
 app.get('/', (req, res) => {

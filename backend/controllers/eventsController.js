@@ -1,5 +1,6 @@
 // controllers/eventsController.js
 const Event = require('../models/events');
+const NotificationService = require('../services/notificationService');
 
 // Get all events
 exports.getEvents = async (req, res) => {
@@ -98,47 +99,40 @@ exports.createEvent = async (req, res) => {
     console.log('Validity valid:', !isNaN(validity.getTime()));
 
     if (isNaN(eventDate.getTime())) {
-      console.log('❌ Invalid event date format');
+      console.log('❌ Invalid event date');
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid event date format. Please use YYYY-MM-DD' 
+        message: 'Invalid event date' 
       });
     }
 
     if (isNaN(validity.getTime())) {
-      console.log('❌ Invalid validity date format');
+      console.log('❌ Invalid validity date');
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid validity date format. Please use YYYY-MM-DD' 
+        message: 'Invalid validity date' 
       });
     }
 
-    if (eventDate <= today) {
-      console.log('❌ Event date is not in the future');
+    if (eventDate < today) {
+      console.log('❌ Event date cannot be in the past');
       return res.status(400).json({ 
         success: false, 
-        message: 'Event date must be in the future' 
+        message: 'Event date cannot be in the past' 
       });
     }
 
-    if (validity <= today) {
-      console.log('❌ Validity date is not in the future');
+    if (validity < eventDate) {
+      console.log('❌ Validity date cannot be before event date');
       return res.status(400).json({ 
         success: false, 
-        message: 'Validity date must be in the future' 
+        message: 'Validity date cannot be before event date' 
       });
     }
 
-    if (validity > eventDate) {
-      console.log('❌ Validity date is after event date');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validity date cannot be after the event date' 
-      });
-    }
-
-    // Create new event
-    const newEvent = new Event({
+    // Create event
+    console.log('📝 Creating event...');
+    const event = new Event({
       title,
       description,
       category,
@@ -146,34 +140,38 @@ exports.createEvent = async (req, res) => {
       startTime,
       endTime,
       venue,
-      currentAttendees: 0,
       validityDate: validity,
-      organizer: organizer || `${req.user.name} (${req.user.role})`,
+      organizer: organizer || req.user.name,
       requirements: requirements || [],
       prizes: prizes || [],
-      isRegistrationOpen: true,
-      registeredUsers: []
+      createdBy: req.user._id
     });
 
-    await newEvent.save();
+    await event.save();
+    console.log('✅ Event created successfully:', event._id);
 
-    console.log('✅ Event created successfully:', {
-      title: newEvent.title,
-      category: newEvent.category,
-      date: newEvent.date,
-      validityDate: newEvent.validityDate,
-      createdBy: req.user.name,
-      userRole: req.user.role
-    });
+    // Send notifications to all users
+    try {
+      await NotificationService.notifyNewEvent(event);
+      console.log('📱 Notifications sent for new event');
+    } catch (notificationError) {
+      console.error('⚠️ Error sending notifications:', notificationError);
+      // Don't fail the request if notifications fail
+    }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'Event created successfully',
-      data: newEvent
+      data: event
     });
+
   } catch (error) {
     console.error('❌ Error creating event:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error', 
+      error: error.message 
+    });
   }
 };
 

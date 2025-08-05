@@ -33,6 +33,20 @@ const userSchema = new mongoose.Schema({
     enum: ['student', 'staff', 'management'],
     required: true,
   },
+  // Employee ID for barcode scanning (MAPH format) - Optional for existing users
+  employeeId: {
+    type: String,
+    required: false, // Make it optional for existing users
+    unique: true,
+    sparse: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Allow empty for students or existing users
+        return /^MAPH\d+$/.test(v);
+      },
+      message: 'Employee ID must start with MAPH followed by numbers'
+    }
+  },
   // Staff-specific fields
   qualification: {
     type: String,

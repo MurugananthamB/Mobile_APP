@@ -8,9 +8,6 @@ import ApiService from '../services/api';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Get BASE_URL from ApiService
-const BASE_URL = 'https://5000-firebase-mobileappgit-1754119877028.cluster-iktsryn7xnhpexlu6255bftka4.cloudworkstations.dev'; // Cloud Workstation URL
-
 export default function ProfileScreen() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +19,79 @@ export default function ProfileScreen() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageUpdateKey, setImageUpdateKey] = useState(0);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Helper function to get default profile image
+  const getDefaultProfileImage = () => {
+    return require('../assets/images/icon.png');
+  };
+
+  // Function to clear selected image (remove from device)
+  const clearSelectedImage = () => {
+    console.log('🗑️ Clearing selected image from device');
+    setSelectedImage(null);
+    setImageUpdateKey(prev => prev + 1);
+  };
+
+  // Function to replace current profile image
+  const replaceProfileImage = () => {
+    console.log('🔄 Replacing profile image');
+    showImagePickerOptions();
+  };
+
+  // Function to remove profile image completely
+  const removeProfileImage = async () => {
+    try {
+      console.log('🗑️ Removing profile image completely');
+      
+      Alert.alert(
+        'Remove Profile Image',
+        'Are you sure you want to remove your profile image? This action cannot be undone.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                await ApiService.deleteProfileImage();
+                
+                // Refresh user data
+                await fetchUserProfile();
+                
+                // Clear any selected image
+                setSelectedImage(null);
+                
+                Alert.alert('Success', 'Profile image removed successfully');
+              } catch (error) {
+                console.error('❌ Error removing profile image:', error);
+                Alert.alert('Error', 'Failed to remove profile image. Please try again.');
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error in removeProfileImage:', error);
+      Alert.alert('Error', 'Failed to remove profile image');
+    }
+  };
+
+  // Function to show selected image status
+  const getImageStatusText = () => {
+    if (selectedImage) {
+      return 'New image selected - Save to upload';
+    }
+    if (userInfo.profileImage) {
+      return 'Profile image uploaded';
+    }
+    return 'No profile image';
+  };
 
   // Fetch user profile data
   const fetchUserProfile = async (isRefresh = false) => {
@@ -301,32 +371,21 @@ export default function ProfileScreen() {
         setSaving(true);
         
         // Upload image if selected
-        let imageUrl = userData?.profileImage;
         if (selectedImage) {
             console.log('📤 Uploading selected image...');
             console.log('📤 Selected image:', selectedImage);
             
             setUploadingImage(true);
             try {
-                // Upload the image first
+                // Upload the image as base64
                 const uploadResponse = await ApiService.uploadProfileImage(selectedImage);
                 console.log('📤 Upload response:', uploadResponse);
                 
-                // Handle different response formats
-                if (uploadResponse?.imageUrl) {
-                    imageUrl = uploadResponse.imageUrl;
-                } else if (uploadResponse?.url) {
-                    imageUrl = uploadResponse.url;
-                } else if (uploadResponse?.data?.imageUrl) {
-                    imageUrl = uploadResponse.data.imageUrl;
-                } else if (uploadResponse?.data?.url) {
-                    imageUrl = uploadResponse.data.url;
-                } else {
-                    console.log('❌ Upload response format not recognized:', uploadResponse);
-                    throw new Error('Image upload failed - unexpected response format');
+                if (!uploadResponse?.success) {
+                    throw new Error('Image upload failed');
                 }
                 
-                console.log('📤 Final image URL:', imageUrl);
+                console.log('📤 Image uploaded successfully');
             } catch (uploadError) {
                 console.error('❌ Image upload error:', uploadError);
                 Alert.alert('Upload Error', uploadError.message || 'Failed to upload image');
@@ -337,10 +396,9 @@ export default function ProfileScreen() {
             }
         }
         
-        // Update profile with new data and image URL
+        // Update profile with new data (image is already uploaded)
         const updateData = {
-            ...editForm,
-            profileImage: imageUrl
+            ...editForm
         };
         
         console.log('📤 Updating profile with data:', updateData);
@@ -353,6 +411,7 @@ export default function ProfileScreen() {
         
         // Update local state
         setUserData(updateResponse.user);
+        setSelectedImage(null); // Clear selected image after successful upload
         setImageUpdateKey(prev => prev + 1); // Force image refresh
         setShowEditModal(false);
         
@@ -419,15 +478,21 @@ export default function ProfileScreen() {
   const getUserDisplayInfo = () => {
     if (!userData) return {};
 
-    // Add cache-busting parameter to profile image URL
-    const profileImageUrl = userData.profileImage 
-      ? `${BASE_URL.replace('/api', '')}${userData.profileImage}?t=${Date.now()}` 
-      : null;
+    // Handle profile image - now stored as base64 data
+    let profileImageUrl = null;
+    if (userData.profileImage) {
+      // Check if it's a base64 data URL
+      if (userData.profileImage.startsWith('data:image/')) {
+        profileImageUrl = userData.profileImage;
+      } else {
+        // Fallback for old URL-based images (if any)
+        const baseUrl = ApiService.baseURL.replace('/api', '');
+        profileImageUrl = `${baseUrl}${userData.profileImage}?t=${Date.now()}`;
+      }
+    }
 
-    console.log('🖼️ getUserDisplayInfo - userData.profileImage:', userData.profileImage);
-    console.log('🖼️ getUserDisplayInfo - profileImageUrl:', profileImageUrl);
-    console.log('🖼️ getUserDisplayInfo - BASE_URL:', BASE_URL);
-    console.log('🖼️ getUserDisplayInfo - BASE_URL.replace("/api", ""):', BASE_URL.replace('/api', ''));
+    console.log('🖼️ getUserDisplayInfo - userData.profileImage type:', typeof userData.profileImage);
+    console.log('🖼️ getUserDisplayInfo - profileImageUrl:', profileImageUrl ? 'Set' : 'Not set');
 
     const baseInfo = {
       name: userData.name || 'User',
@@ -531,27 +596,31 @@ export default function ProfileScreen() {
           style={styles.profileHeader}
         >
           <View style={styles.profileHeaderContent}>
-            <Image 
-              key={`${userInfo.profileImage || 'default'}-${imageUpdateKey}`}
-              source={{
-                uri: selectedImage?.uri || (userInfo.profileImage 
-                  ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
-                  : 'https://via.placeholder.com/150')
-              }}
-              style={styles.profileImage}
-              onError={(error) => {
-                console.log('❌ Image load error:', error.nativeEvent);
-                console.log('❌ Image URI:', selectedImage?.uri || (userInfo.profileImage 
-                  ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
-                  : 'https://via.placeholder.com/150'));
-              }}
-              onLoad={() => {
-                console.log('✅ Image loaded successfully');
-                console.log('✅ Image URI:', selectedImage?.uri || (userInfo.profileImage 
-                  ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
-                  : 'https://via.placeholder.com/150'));
-              }}
-            />
+            <View style={styles.profileImageContainer}>
+              <Image 
+                key={`${userInfo.profileImage || 'default'}-${imageUpdateKey}`}
+                source={
+                  selectedImage?.uri 
+                    ? { uri: selectedImage.uri }
+                    : userInfo.profileImage 
+                      ? (userInfo.profileImage.startsWith('data:image/') 
+                          ? { uri: userInfo.profileImage }
+                          : { uri: `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` }
+                        )
+                      : getDefaultProfileImage()
+                }
+                style={styles.profileImage}
+                onError={(error) => {
+                  console.log('❌ Image load error:', error.nativeEvent);
+                  console.log('❌ Image URI:', selectedImage?.uri || userInfo.profileImage || 'default image');
+                }}
+                onLoad={() => {
+                  console.log('✅ Image loaded successfully');
+                  console.log('✅ Image URI:', selectedImage?.uri || userInfo.profileImage || 'default image');
+                }}
+              />
+            </View>
+            
             <Text style={styles.studentName}>{userInfo.name}</Text>
             <Text style={styles.studentDetails}>
               {userData?.role === 'student' 
@@ -900,23 +969,24 @@ export default function ProfileScreen() {
               >
                 <Image
                   key={`${userInfo.profileImage || 'default'}-${imageUpdateKey}`}
-                  source={{
-                    uri: selectedImage?.uri || (userInfo.profileImage 
-                      ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
-                      : 'https://via.placeholder.com/150')
-                  }}
+                  source={
+                    selectedImage?.uri 
+                      ? { uri: selectedImage.uri }
+                      : userInfo.profileImage 
+                        ? (userInfo.profileImage.startsWith('data:image/') 
+                            ? { uri: userInfo.profileImage }
+                            : { uri: `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` }
+                          )
+                        : getDefaultProfileImage()
+                  }
                   style={styles.editProfileImage}
                   onError={(error) => {
                     console.log('❌ Edit modal image load error:', error.nativeEvent);
-                    console.log('❌ Edit modal image URI:', selectedImage?.uri || (userInfo.profileImage 
-                      ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
-                      : 'https://via.placeholder.com/150'));
+                    console.log('❌ Edit modal image URI:', selectedImage?.uri || userInfo.profileImage || 'default image');
                   }}
                   onLoad={() => {
                     console.log('✅ Edit modal image loaded successfully');
-                    console.log('✅ Edit modal image URI:', selectedImage?.uri || (userInfo.profileImage 
-                      ? `${userInfo.profileImage}${userInfo.profileImage.includes('?') ? '&' : '?'}t=${Date.now()}` 
-                      : 'https://via.placeholder.com/150'));
+                    console.log('✅ Edit modal image URI:', selectedImage?.uri || userInfo.profileImage || 'default image');
                   }}
                 />
                 <View style={styles.imageOverlay}>
@@ -928,6 +998,30 @@ export default function ProfileScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+              
+              {/* Image Management Controls for Edit Modal */}
+              <View style={styles.editImageControls}>
+                {userInfo.profileImage && (
+                  <TouchableOpacity 
+                    style={[styles.editImageControlButton, styles.removeButton]} 
+                    onPress={removeProfileImage}
+                  >
+                    <X size={16} color="#ffffff" />
+                    <Text style={styles.editImageControlText}>Remove</Text>
+                  </TouchableOpacity>
+                )}
+                
+                {selectedImage && (
+                  <TouchableOpacity 
+                    style={[styles.editImageControlButton, styles.clearButton]} 
+                    onPress={clearSelectedImage}
+                  >
+                    <X size={16} color="#ffffff" />
+                    <Text style={styles.editImageControlText}>Clear</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
               <Text style={styles.imageLabel}>
                 {selectedImage ? 'Image selected - tap to change' : 'Tap to change photo'}
               </Text>
@@ -1458,13 +1552,56 @@ const styles = StyleSheet.create({
   profileHeaderContent: {
     alignItems: 'center',
   },
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: 15,
+  },
   profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 4,
     borderColor: '#ffffff',
-    marginBottom: 15,
+  },
+  imageControls: {
+    position: 'absolute',
+    bottom: -5,
+    right: -5,
+    flexDirection: 'row',
+    gap: 5,
+  },
+  imageControlButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1e40af',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  removeButton: {
+    backgroundColor: '#dc2626',
+  },
+  clearButton: {
+    backgroundColor: '#f59e0b',
+  },
+  imageStatusContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginBottom: 10,
+  },
+  imageStatusText: {
+    fontSize: 12,
+    color: '#1e40af',
+    fontWeight: '500',
   },
   studentName: {
     color: '#ffffff',
@@ -1812,5 +1949,28 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
     fontWeight: '500',
+  },
+  editImageControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  editImageControlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  editImageControlText: {
+    color: '#1f2937',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 5,
   },
 });

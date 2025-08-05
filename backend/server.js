@@ -37,8 +37,9 @@ connectDB().catch(err => {
 
 // Enable CORS with explicit options
 app.use(cors({
-  origin: 'http://localhost:8081',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: true, // Allow all origins for mobile apps
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true
 }));
 

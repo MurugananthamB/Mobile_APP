@@ -136,8 +136,24 @@ class ApiService {
   }
 
   async isAuthenticated() {
-    const token = await this.getStoredToken();
-    return !!token;
+    try {
+      const token = await this.getStoredToken();
+      if (!token) {
+        console.log('🔍 No token found in storage');
+        return false;
+      }
+
+      // Validate token with server
+      console.log('🔍 Validating token with server...');
+      await this.makeRequest('/protected/profile');
+      console.log('✅ Token is valid');
+      return true;
+    } catch (error) {
+      console.log('❌ Token validation failed:', error.message);
+      // Clear invalid token
+      await this.logout();
+      return false;
+    }
   }
 
   async getProfile() {
@@ -311,6 +327,17 @@ class ApiService {
     });
   }
 
+  async markAttendanceForAllUsers(date, attendanceData) {
+    return await this.makeRequest('/attendance/mark-all-users', {
+      method: 'POST',
+      body: JSON.stringify({ date, attendanceData }),
+    });
+  }
+
+  async getStaffAndManagementUsers() {
+    return await this.makeRequest('/auth/staff-management-users');
+  }
+
   async getAttendanceStats() {
     return await this.makeRequest('/attendance/stats');
   }
@@ -417,11 +444,7 @@ class ApiService {
     }
   }
 
-  async clearAllEvents() {
-    return await this.makeRequest('/events/clear', {
-      method: 'DELETE',
-    });
-  }
+
 
   // =============== NOTICES METHODS ===============
   async getNotices() {
@@ -513,19 +536,6 @@ class ApiService {
   }
 
   // =============== UTILITY METHODS ===============
-
-  // Test API connectivity
-  async testConnection() {
-    try {
-      console.log('🧪 Testing API connection...');
-      const response = await this.makeRequest('/test');
-      console.log('✅ API connection test successful:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ API connection test failed:', error);
-      throw error;
-    }
-  }
 
   // Upload file (for homework submissions, etc.)
   async uploadFile(file, type = 'homework') {

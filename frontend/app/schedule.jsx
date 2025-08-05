@@ -647,7 +647,7 @@ export default function ScheduleScreen() {
           style={styles.header}
         >
           <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)')} style={styles.backButton}>
               <ChevronLeft size={24} color="#ffffff" />
             </TouchableOpacity>
                          <View style={styles.headerInfo}>

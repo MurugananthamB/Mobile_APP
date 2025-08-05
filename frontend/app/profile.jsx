@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Modal, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3, RefreshCw, X, Camera, Save } from 'lucide-react-native';
+import { Mail, Phone, MapPin, User, Calendar, BookOpen, Award, Edit3, RefreshCw, X, Camera, Save, LogOut } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useState, useEffect } from 'react';
 import ApiService from '../services/api';
@@ -927,6 +927,31 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Logout Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.logoutCard}>
+            <TouchableOpacity 
+              style={styles.logoutButton} 
+              onPress={async () => {
+                try {
+                  console.log('🚪 Logging out from profile...');
+                  await ApiService.logout();
+                  console.log('🚪 Logout successful, navigating to login');
+                  router.replace('/login');
+                } catch (error) {
+                  console.error('🚪 Logout error:', error);
+                  // Even if logout fails, clear local data and redirect
+                  await ApiService.logout();
+                  router.replace('/login');
+                }
+              }}
+            >
+              <LogOut size={20} color="#dc2626" />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
       </ScrollView>
 
@@ -1788,6 +1813,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#1f2937',
+  },
+
+  // Logout Styles
+  logoutCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+  },
+  logoutButtonText: {
+    color: '#dc2626',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 10,
   },
 
   // Modal Styles

@@ -14,6 +14,7 @@ export default function EventsScreen() {
   // Add event modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   
   // Search and calendar states
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,7 +25,6 @@ export default function EventsScreen() {
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
-    category: '',
     eventDay: '',
     eventMonth: '',
     eventYear: '',
@@ -90,11 +90,11 @@ export default function EventsScreen() {
   const validateForm = () => {
     console.log('🔍 Frontend validation - checking form data:', newEvent);
     
-    if (!newEvent.title || !newEvent.description || !newEvent.category || 
+    if (!newEvent.title || !newEvent.description || 
         !newEvent.eventDay || !newEvent.eventMonth || !newEvent.eventYear ||
         !newEvent.validityDay || !newEvent.validityMonth || !newEvent.validityYear ||
         !newEvent.startTime || !newEvent.endTime || 
-        !newEvent.venue) {
+        !newEvent.venue || !newEvent.organizer) {
       console.log('❌ Frontend validation failed - missing fields');
       Alert.alert('Validation Error', 'Please fill in all required fields');
       return false;
@@ -125,6 +125,11 @@ export default function EventsScreen() {
     const validityDate = new Date(validityYear, validityMonth - 1, validityDay);
     const today = new Date();
     
+    // Reset time to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    validityDate.setHours(0, 0, 0, 0);
+    
     console.log('Event date:', eventDate, 'Valid:', !isNaN(eventDate.getTime()));
     console.log('Validity date:', validityDate, 'Valid:', !isNaN(validityDate.getTime()));
     console.log('Today:', today);
@@ -139,13 +144,15 @@ export default function EventsScreen() {
       return false;
     }
 
-    if (eventDate <= today) {
-      Alert.alert('Validation Error', 'Event date must be in the future');
+    // Allow event date to be today (exact creation date)
+    if (eventDate < today) {
+      Alert.alert('Validation Error', 'Event date cannot be in the past');
       return false;
     }
 
-    if (validityDate <= today) {
-      Alert.alert('Validation Error', 'Validity date must be in the future');
+    // Allow validity date to be today or future
+    if (validityDate < today) {
+      Alert.alert('Validation Error', 'Validity date cannot be in the past');
       return false;
     }
 
@@ -180,7 +187,6 @@ export default function EventsScreen() {
       const eventData = {
         title: newEvent.title,
         description: newEvent.description,
-        category: newEvent.category,
         date: eventDate,
         validityDate: validityDate,
         startTime: newEvent.startTime,
@@ -192,6 +198,15 @@ export default function EventsScreen() {
       };
 
       console.log('📝 Final event data to send:', eventData);
+      console.log('📝 Field-by-field check:');
+      console.log('  - title:', !!eventData.title, eventData.title);
+      console.log('  - description:', !!eventData.description, eventData.description);
+      console.log('  - date:', !!eventData.date, eventData.date);
+      console.log('  - validityDate:', !!eventData.validityDate, eventData.validityDate);
+      console.log('  - startTime:', !!eventData.startTime, eventData.startTime);
+      console.log('  - endTime:', !!eventData.endTime, eventData.endTime);
+      console.log('  - venue:', !!eventData.venue, eventData.venue);
+      console.log('  - organizer:', !!eventData.organizer, eventData.organizer);
       console.log('🔗 About to call ApiService.createEvent...');
 
       const response = await ApiService.createEvent(eventData);
@@ -230,7 +245,6 @@ export default function EventsScreen() {
     setNewEvent({
       title: '',
       description: '',
-      category: '',
       eventDay: '',
       eventMonth: '',
       eventYear: '',
@@ -248,6 +262,7 @@ export default function EventsScreen() {
 
   const closeAddModal = () => {
     setShowAddModal(false);
+    setShowCategoryDropdown(false);
     resetForm();
   };
 
@@ -357,7 +372,7 @@ export default function EventsScreen() {
       const query = searchQuery.toLowerCase();
       return (
         event.title.toLowerCase().includes(query) ||
-        event.category.toLowerCase().includes(query) ||
+        event.description.toLowerCase().includes(query) ||
         event.venue.toLowerCase().includes(query) ||
         (event.organizer && event.organizer.toLowerCase().includes(query))
       );
@@ -366,66 +381,73 @@ export default function EventsScreen() {
     return true;
   });
 
-  // Predefined title options
-  const titleOptions = [
-    { value: 'General Meeting', label: 'General Meeting' },
-    { value: 'Review Meeting', label: 'Review Meeting' },
-    { value: 'Workshops', label: 'Workshops' },
-    { value: 'Programs', label: 'Programs' },
-    { value: 'Orientation and Induction Program', label: 'Orientation and Induction Program' },
-    { value: 'Other', label: 'Other' }
-  ];
-
-  // Predefined category options
+  // Predefined category options (now used as title)
   const categoryOptions = [
-    { label: 'Sports & Athletics', value: 'Sports', icon: '🏃‍♂️', color: '#10b981' },
-    { label: 'Academic & Education', value: 'Academic', icon: '📚', color: '#3b82f6' },
-    { label: 'Cultural & Arts', value: 'Cultural', icon: '🎭', color: '#8b5cf6' },
-    { label: 'Technology & IT', value: 'Technology', icon: '💻', color: '#f59e0b' },
-    { label: 'Social & Celebration', value: 'Social', icon: '🎉', color: '#ec4899' },
-    { label: 'Workshop & Training', value: 'Workshop', icon: '🔧', color: '#06b6d4' },
-    { label: 'Other', value: 'Other', icon: '📅', color: '#6b7280' },
+    { value: 'Sports & Athletics', label: 'Sports & Athletics', icon: '🏃‍♂️', color: '#10b981' },
+    { value: 'Academic & Education', label: 'Academic & Education', icon: '📚', color: '#3b82f6' },
+    { value: 'Cultural & Arts', label: 'Cultural & Arts', icon: '🎭', color: '#8b5cf6' },
+    { value: 'Technology & IT', label: 'Technology & IT', icon: '💻', color: '#f59e0b' },
+    { value: 'Social & Celebration', label: 'Social & Celebration', icon: '🎉', color: '#ec4899' },
+    { value: 'Workshop & Training', label: 'Workshop & Training', icon: '🔧', color: '#06b6d4' },
+    { value: 'General Meeting', label: 'General Meeting', icon: '👥', color: '#667eea' },
+    { value: 'Review Meeting', label: 'Review Meeting', icon: '📋', color: '#059669' },
+    { value: 'Orientation Program', label: 'Orientation Program', icon: '🎓', color: '#7c3aed' },
+    { value: 'Other', label: 'Other', icon: '📅', color: '#6b7280' },
   ];
 
-  // Get category color and styling
-  const getCategoryStyle = (category) => {
-    const categoryLower = category.toLowerCase();
+
+
+  // Get category color and styling based on title
+  const getCategoryStyle = (title) => {
+    const titleLower = title.toLowerCase();
     
-    if (categoryLower.includes('sport') || categoryLower.includes('athletic') || categoryLower.includes('fitness')) {
+    if (titleLower.includes('sport') || titleLower.includes('athletic') || titleLower.includes('fitness')) {
       return {
         backgroundColor: '#10b981',
         color: '#ffffff',
         icon: '🏃‍♂️'
       };
-    } else if (categoryLower.includes('academic') || categoryLower.includes('study') || categoryLower.includes('education')) {
+    } else if (titleLower.includes('academic') || titleLower.includes('education')) {
       return {
         backgroundColor: '#3b82f6',
         color: '#ffffff',
         icon: '📚'
       };
-    } else if (categoryLower.includes('cultural') || categoryLower.includes('art') || categoryLower.includes('music') || categoryLower.includes('dance')) {
+    } else if (titleLower.includes('cultural') || titleLower.includes('art')) {
       return {
         backgroundColor: '#8b5cf6',
         color: '#ffffff',
         icon: '🎭'
       };
-    } else if (categoryLower.includes('technology') || categoryLower.includes('tech') || categoryLower.includes('computer')) {
+    } else if (titleLower.includes('technology') || titleLower.includes('tech')) {
       return {
         backgroundColor: '#f59e0b',
         color: '#ffffff',
         icon: '💻'
       };
-    } else if (categoryLower.includes('social') || categoryLower.includes('party') || categoryLower.includes('celebration')) {
+    } else if (titleLower.includes('social') || titleLower.includes('celebration')) {
       return {
         backgroundColor: '#ec4899',
         color: '#ffffff',
         icon: '🎉'
       };
-    } else if (categoryLower.includes('workshop') || categoryLower.includes('seminar') || categoryLower.includes('training')) {
+    } else if (titleLower.includes('workshop') || titleLower.includes('training')) {
       return {
         backgroundColor: '#06b6d4',
         color: '#ffffff',
         icon: '🔧'
+      };
+    } else if (titleLower.includes('meeting')) {
+      return {
+        backgroundColor: '#667eea',
+        color: '#ffffff',
+        icon: '👥'
+      };
+    } else if (titleLower.includes('orientation')) {
+      return {
+        backgroundColor: '#7c3aed',
+        color: '#ffffff',
+        icon: '🎓'
       };
     } else {
       return {
@@ -463,6 +485,12 @@ export default function EventsScreen() {
           style={styles.header}
         >
           <View style={styles.headerContent}>
+            <TouchableOpacity 
+              onPress={() => router.push('/(tabs)')} 
+              style={styles.backButton}
+            >
+              <ChevronLeft size={24} color="#ffffff" />
+            </TouchableOpacity>
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>Schedule</Text>
             </View>
@@ -605,7 +633,7 @@ export default function EventsScreen() {
               </View>
             ) : (
               filteredEvents.map((event, index) => {
-                const categoryStyle = getCategoryStyle(event.category);
+                const categoryStyle = getCategoryStyle(event.title);
                 const eventDate = new Date(event.date);
                 const dayOfWeek = eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 const dayOfMonth = eventDate.getDate();
@@ -634,7 +662,7 @@ export default function EventsScreen() {
                       <View style={styles.eventDetails}>
                         <View style={styles.detailItem}>
                           <Text style={styles.detailIcon}>🎯</Text>
-                          <Text style={styles.detailText}>{event.category}</Text>
+                          <Text style={styles.detailText}>{event.title}</Text>
                         </View>
                         <View style={styles.detailItem}>
                           <MapPin size={14} color="#ffffff" />
@@ -697,15 +725,21 @@ export default function EventsScreen() {
         )}
       </ScrollView>
 
-      {/* Add Event Modal */}
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closeAddModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+                    {/* Add Event Modal */}
+       <Modal
+         visible={showAddModal}
+         animationType="slide"
+         transparent={true}
+         onRequestClose={closeAddModal}
+       >
+         <TouchableOpacity 
+           style={styles.modalOverlay} 
+           activeOpacity={1} 
+           onPress={() => {
+             setShowCategoryDropdown(false);
+           }}
+         >
+           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create New Event</Text>
               <TouchableOpacity onPress={closeAddModal}>
@@ -714,28 +748,69 @@ export default function EventsScreen() {
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {/* Title */}
+              {/* Category (Title) */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Event Title *</Text>
-                <View style={styles.titlePicker}>
-                  {titleOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
+                <Text style={styles.inputLabel}>Event Category *</Text>
+                <TouchableOpacity
+                  style={styles.dropdownContainer}
+                  onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                >
+                  <View style={styles.dropdownHeader}>
+                    {newEvent.title ? (
+                      <View style={styles.selectedCategory}>
+                        <Text style={styles.selectedCategoryIcon}>
+                          {categoryOptions.find(opt => opt.value === newEvent.title)?.icon || '📅'}
+                        </Text>
+                        <Text style={styles.selectedCategoryText}>
+                          {categoryOptions.find(opt => opt.value === newEvent.title)?.label || 'Select Category'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.dropdownPlaceholder}>Select Category</Text>
+                    )}
+                    <ChevronDown 
+                      size={20} 
+                      color="#6b7280" 
                       style={[
-                        styles.titleOption,
-                        newEvent.title === option.value && { backgroundColor: '#667eea' }
+                        styles.dropdownArrow,
+                        showCategoryDropdown && styles.dropdownArrowRotated
                       ]}
-                      onPress={() => setNewEvent({...newEvent, title: option.value})}
-                    >
-                      <Text style={[
-                        styles.titleOptionText,
-                        newEvent.title === option.value && { color: '#ffffff' }
-                      ]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                    />
+                  </View>
+                </TouchableOpacity>
+                
+                                 {/* Dropdown Options */}
+                 {showCategoryDropdown && (
+                   <View style={styles.dropdownOptions}>
+                     <ScrollView 
+                       nestedScrollEnabled={true}
+                       showsVerticalScrollIndicator={false}
+                       style={{ maxHeight: 200 }}
+                     >
+                       {categoryOptions.map((option) => (
+                         <TouchableOpacity
+                           key={option.value}
+                           style={[
+                             styles.dropdownOption,
+                             newEvent.title === option.value && styles.dropdownOptionSelected
+                           ]}
+                           onPress={() => {
+                             setNewEvent({...newEvent, title: option.value});
+                             setShowCategoryDropdown(false);
+                           }}
+                         >
+                           <Text style={styles.dropdownOptionIcon}>{option.icon}</Text>
+                           <Text style={[
+                             styles.dropdownOptionText,
+                             newEvent.title === option.value && styles.dropdownOptionTextSelected
+                           ]}>
+                             {option.label}
+                           </Text>
+                         </TouchableOpacity>
+                       ))}
+                     </ScrollView>
+                   </View>
+                 )}
               </View>
 
               {/* Description */}
@@ -751,30 +826,7 @@ export default function EventsScreen() {
                 />
               </View>
 
-              {/* Category */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category *</Text>
-                <View style={styles.categoryPicker}>
-                  {categoryOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.categoryOption,
-                        newEvent.category === option.value && { backgroundColor: option.color }
-                      ]}
-                      onPress={() => setNewEvent({...newEvent, category: option.value})}
-                    >
-                      <Text style={styles.categoryOptionIcon}>{option.icon}</Text>
-                      <Text style={[
-                        styles.categoryOptionText,
-                        newEvent.category === option.value && { color: '#ffffff' }
-                      ]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+
 
               {/* Event Date */}
               <View style={styles.inputGroup}>
@@ -946,10 +998,10 @@ export default function EventsScreen() {
                   {isSubmitting ? 'Creating...' : 'Create Event'}
                 </Text>
               </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+                         </View>
+           </View>
+         </TouchableOpacity>
+       </Modal>
     </SafeAreaView>
   );
 }
@@ -971,6 +1023,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   headerInfo: {
     flex: 1,
@@ -1370,48 +1426,82 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: 'italic',
   },
-  categoryPicker: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  categoryOption: {
+  // Dropdown Styles
+     dropdownContainer: {
+     borderWidth: 1,
+     borderColor: '#d1d5db',
+     borderRadius: 8,
+     backgroundColor: '#ffffff',
+     marginTop: 4,
+     position: 'relative',
+     zIndex: 1000,
+   },
+  dropdownHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    gap: 6,
+    justifyContent: 'space-between',
+    padding: 12,
   },
-  categoryOptionIcon: {
-    fontSize: 16,
-  },
-  categoryOptionText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  titlePicker: {
+  selectedCategory: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
+    alignItems: 'center',
+    flex: 1,
   },
-  titleOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
+  selectedCategoryIcon: {
+    fontSize: 16,
+    marginRight: 8,
   },
-  titleOptionText: {
-    fontSize: 12,
+  selectedCategoryText: {
+    fontSize: 14,
+    color: '#1f2937',
     fontWeight: '500',
-    color: '#374151',
   },
+  dropdownPlaceholder: {
+    fontSize: 14,
+    color: '#9ca3af',
+    flex: 1,
+  },
+  dropdownArrow: {
+    marginLeft: 8,
+  },
+  dropdownArrowRotated: {
+    transform: [{ rotate: '180deg' }],
+  },
+     dropdownOptions: {
+     borderTopWidth: 1,
+     borderTopColor: '#e5e7eb',
+     backgroundColor: '#ffffff',
+     borderRadius: 0,
+     zIndex: 1000,
+     elevation: 5,
+     shadowColor: '#000',
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.1,
+     shadowRadius: 4,
+   },
+     dropdownOption: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     padding: 12,
+     borderBottomWidth: 1,
+     borderBottomColor: '#f3f4f6',
+     minHeight: 44,
+   },
+  dropdownOptionSelected: {
+    backgroundColor: '#f1f5f9',
+  },
+  dropdownOptionIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  dropdownOptionText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  dropdownOptionTextSelected: {
+    color: '#1e40af',
+    fontWeight: '600',
+  },
+
 }); 

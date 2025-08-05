@@ -167,12 +167,7 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Demo Credentials */}
-            <View style={styles.demoContainer}>
-              <Text style={styles.demoTitle}>Demo Credentials</Text>
-              <Text style={styles.demoText}>Try: testuser / testpass</Text>
-              <Text style={styles.demoText}>Backend will create user if not exists</Text>
-            </View>
+
 
 
           </View>
@@ -327,23 +322,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e40af',
   },
-  demoContainer: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
-  },
-  demoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e40af',
-    marginBottom: 8,
-  },
-  demoText: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 2,
-    textAlign: 'center',
-  },
+
 
 });

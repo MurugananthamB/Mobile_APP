@@ -183,3 +183,46 @@ exports.userLogin = async (req, res) => {
     });
   }
 };
+
+// Get all staff and management users (for management attendance)
+exports.getStaffAndManagementUsers = async (req, res) => {
+  try {
+    // Check if user is management
+    if (req.user.role !== 'management') {
+      return res.status(403).json({ 
+        message: 'Access denied. Only management users can view this data.' 
+      });
+    }
+
+    // Find all staff and management users
+    const users = await User.find({ 
+      role: { $in: ['staff', 'management'] },
+      isActive: true 
+    }).select('userid name role department position subject qualification experience');
+
+    // Format the response
+    const formattedUsers = users.map(user => ({
+      id: user._id,
+      userid: user.userid,
+      name: user.name,
+      role: user.role,
+      department: user.department || '',
+      position: user.position || '',
+      subject: user.subject || '',
+      qualification: user.qualification || '',
+      experience: user.experience || ''
+    }));
+
+    res.status(200).json({
+      success: true,
+      users: formattedUsers
+    });
+  } catch (error) {
+    console.error('Error fetching staff and management users:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error while fetching users', 
+      error: error.message 
+    });
+  }
+};

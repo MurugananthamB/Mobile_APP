@@ -7,15 +7,20 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/api';
 import { isManagement, canAddHomework } from '../utils/roleUtils';
 
 export default function HomeworkScreen() {
   const [homework, setHomework] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState(null);
   const [staffMembers, setStaffMembers] = useState([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isLoadingFreshData, setIsLoadingFreshData] = useState(false);
+  
+  // Add homework modal states
   
   // Add homework modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -128,11 +133,67 @@ export default function HomeworkScreen() {
     { label: 'Administrative', value: 'Administrative', icon: '📋' },
   ];
 
+  // Cache key for homework data
+  const HOMEWORK_CACHE_KEY = 'homework_cache';
+  const HOMEWORK_CACHE_TIMESTAMP_KEY = 'homework_cache_timestamp';
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-
-  const loadHomework = async () => {
+  // Load cached homework data
+  const loadCachedHomework = async () => {
     try {
-      setLoading(true);
+      const cachedData = await AsyncStorage.getItem(HOMEWORK_CACHE_KEY);
+      const cacheTimestamp = await AsyncStorage.getItem(HOMEWORK_CACHE_TIMESTAMP_KEY);
+      
+      if (cachedData && cacheTimestamp) {
+        const timestamp = parseInt(cacheTimestamp);
+        const now = Date.now();
+        
+        // Check if cache is still valid (less than 5 minutes old)
+        if (now - timestamp < CACHE_DURATION) {
+          const parsedData = JSON.parse(cachedData);
+          console.log('📦 Using cached homework data:', parsedData.length, 'items');
+          setHomework(parsedData);
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error loading cached homework:', error);
+      return false;
+    }
+  };
+
+  // Save homework data to cache
+  const saveHomeworkToCache = async (homeworkData) => {
+    try {
+      await AsyncStorage.setItem(HOMEWORK_CACHE_KEY, JSON.stringify(homeworkData));
+      await AsyncStorage.setItem(HOMEWORK_CACHE_TIMESTAMP_KEY, Date.now().toString());
+      console.log('💾 Homework data cached successfully');
+    } catch (error) {
+      console.error('Error caching homework data:', error);
+    }
+  };
+
+  const loadHomework = async (isRefresh = false) => {
+    try {
+      // If this is not a refresh, try to load cached data first
+      if (!isRefresh) {
+        const hasCachedData = await loadCachedHomework();
+        if (hasCachedData) {
+          setIsInitialLoad(false);
+          // Load fresh data in background
+          loadFreshHomeworkInBackground();
+          return;
+        }
+      }
+
+      // Show loading state only for refresh operations
+      if (isRefresh) {
+        setLoading(true);
+      } else {
+        setIsLoadingFreshData(true);
+      }
+      
       const response = await ApiService.getHomework();
       console.log('Homework response received:', response);
       
@@ -180,13 +241,53 @@ export default function HomeworkScreen() {
       */
       
       console.log(`📊 Final homework count: ${homeworkData?.length || 0} items for ${userInfo?.role}`);
-      setHomework(Array.isArray(homeworkData) ? homeworkData : []);
+      
+      // Always update homework state, even if empty array
+      const finalHomeworkData = Array.isArray(homeworkData) ? homeworkData : [];
+      setHomework(finalHomeworkData);
+      
+      // Cache the fresh data
+      await saveHomeworkToCache(finalHomeworkData);
+      
+      // Mark initial load as complete
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
     } catch (error) {
       console.error('Error loading homework:', error);
-      Alert.alert('Error', 'Failed to load homework data. Please check if the backend server is running.');
-      setHomework([]);
+      // Don't show error alert for instant loading - just log the error
+      console.log('Homework loading failed, keeping default data');
+      
+      // Mark initial load as complete even on error
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
     } finally {
       setLoading(false);
+      setIsLoadingFreshData(false);
+    }
+  };
+
+  // Load fresh homework data in background
+  const loadFreshHomeworkInBackground = async () => {
+    try {
+      console.log('🔄 Loading fresh homework data in background...');
+      setIsLoadingFreshData(true);
+      
+      const response = await ApiService.getHomework();
+      let homeworkData = response?.data || response;
+      
+      const finalHomeworkData = Array.isArray(homeworkData) ? homeworkData : [];
+      setHomework(finalHomeworkData);
+      
+      // Cache the fresh data
+      await saveHomeworkToCache(finalHomeworkData);
+      
+      console.log('✅ Fresh homework data loaded in background');
+    } catch (error) {
+      console.error('Error loading fresh homework data:', error);
+    } finally {
+      setIsLoadingFreshData(false);
     }
   };
 
@@ -201,7 +302,7 @@ export default function HomeworkScreen() {
       console.log('Loaded', staffData.length, 'staff members', selectedSubject ? 'for ' + selectedSubject : '');
     } catch (error) {
       console.error('Error loading staff members:', error);
-      // Fallback to empty array if staff loading fails
+      // Fallback to empty array if staff loading fails - don't block UI
       setStaffMembers([]);
     }
   };
@@ -213,12 +314,13 @@ export default function HomeworkScreen() {
       console.log('User data loaded:', storedUserData);
     } catch (error) {
       console.error('Error loading user data:', error);
+      // Don't block UI on user data loading failure
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadHomework(), loadStaffMembers()]);
+    await Promise.all([loadHomework(true), loadStaffMembers()]);
     setRefreshing(false);
   };
 
@@ -305,11 +407,43 @@ export default function HomeworkScreen() {
         attachmentsCount: homeworkData.attachments.length
       });
 
-      await ApiService.createHomework(homeworkData);
+      const response = await ApiService.createHomework(homeworkData);
+      console.log('✅ Homework created successfully:', response);
+      
+      // Create the new homework object to add to state immediately
+      const newHomeworkItem = {
+        _id: response?.data?._id || `temp-${Date.now()}`, // Use response ID or generate temp ID
+        title: homeworkData.title,
+        description: homeworkData.description,
+        subject: homeworkData.subject,
+        teacher: homeworkData.teacher,
+        teacherName: homeworkData.teacher,
+        fromDate: new Date().toISOString().split('T')[0], // Today's date
+        toDate: toDateString,
+        targetAudience: homeworkData.targetAudience,
+        assignedClass: homeworkData.assignedClass,
+        assignedSection: homeworkData.assignedSection,
+        assignedDepartment: homeworkData.assignedDepartment,
+        attachments: homeworkData.attachments || [],
+        // Add any other fields that might be returned from the API
+        ...response?.data
+      };
+
+      // Add the new homework to the state immediately for instant visibility
+      const updatedHomework = [newHomeworkItem, ...homework];
+      setHomework(updatedHomework);
+      
+      // Update cache immediately
+      await saveHomeworkToCache(updatedHomework);
+      
       Alert.alert('Success', 'Homework assigned successfully');
       
       resetForm();
-      loadHomework();
+      
+      // Also refresh from server to ensure data consistency
+      setTimeout(() => {
+        loadHomework(true);
+      }, 1000);
     } catch (error) {
       console.error('Error adding homework:', error);
       Alert.alert('Error', 'Failed to assign homework');
@@ -513,9 +647,24 @@ export default function HomeworkScreen() {
   };
 
   useEffect(() => {
-    loadHomework();
-    loadUserData();
-    loadStaffMembers();
+    // Load data with caching for instant loading
+    const loadData = async () => {
+      // Load cached homework data first (instant)
+      await loadHomework();
+      
+      // Load other data in parallel
+      const promises = [
+        loadUserData(),
+        loadStaffMembers()
+      ];
+      
+      // Wait for other data to complete but don't block UI
+      Promise.allSettled(promises).then(() => {
+        console.log('✅ All initial data loading completed');
+      });
+    };
+    
+    loadData();
   }, []);
 
   // Check if user can add homework (management or staff only)
@@ -721,29 +870,7 @@ export default function HomeworkScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <LinearGradient colors={['#1e40af', '#3b82f6']} style={styles.header}>
-          <View style={styles.headerContent}>
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>Homework</Text>
-              <Text style={styles.headerSubtitle}>Loading...</Text>
-            </View>
-            {canAddHomework() && (
-              <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-                <Plus size={24} color="#ffffff" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </LinearGradient>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={styles.loadingText}>Loading homework...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -756,14 +883,28 @@ export default function HomeworkScreen() {
         {/* Header */}
         <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
           <View style={styles.headerContent}>
+            <TouchableOpacity 
+              onPress={() => router.push('/(tabs)')} 
+              style={styles.backButton}
+            >
+              <ChevronLeft size={24} color="#ffffff" />
+            </TouchableOpacity>
             <View style={styles.headerInfo}>
               <View style={styles.headerTitleRow}>
                 <BookOpen size={28} color="#ffffff" />
                 <Text style={styles.headerTitle}>Homework</Text>
               </View>
-              <Text style={styles.headerSubtitle}>
-                {pendingHomework?.length || 0} pending assignments
-              </Text>
+              <View style={styles.headerSubtitleRow}>
+                <Text style={styles.headerSubtitle}>
+                  {pendingHomework?.length || 0} pending assignments
+                </Text>
+                {isLoadingFreshData && (
+                  <View style={styles.freshDataIndicator}>
+                    <ActivityIndicator size={12} color="#ffffff" />
+                    <Text style={styles.freshDataText}>Updating...</Text>
+                  </View>
+                )}
+              </View>
               {isManagement() && (
                 <View style={styles.managementBadge}>
                   <Award size={14} color="#ffffff" />
@@ -875,7 +1016,13 @@ export default function HomeworkScreen() {
         )}
 
         {/* Content */}
-        {!Array.isArray(homework) || homework.length === 0 ? (
+        {loading && !isInitialLoad ? (
+          // Show loading indicator only for refresh operations
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#667eea" />
+            <Text style={styles.loadingText}>Refreshing homework...</Text>
+          </View>
+        ) : !Array.isArray(homework) || homework.length === 0 ? (
           <View style={styles.emptyContainer}>
             <AlertCircle size={48} color="#9ca3af" />
             <Text style={styles.emptyTitle}>No Homework</Text>
@@ -1838,6 +1985,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
   headerInfo: {
     flex: 1,
   },
@@ -1852,9 +2003,29 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginLeft: 8,
   },
+  headerSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   headerSubtitle: {
     fontSize: 14,
     color: '#e2e8f0',
+  },
+  freshDataIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  freshDataText: {
+    fontSize: 12,
+    color: '#ffffff',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   managementBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

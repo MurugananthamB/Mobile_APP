@@ -2,12 +2,16 @@
 
 const express = require('express');
 const router = express.Router();
-const { userRegister, userLogin } = require('../controllers/authController');
+const authController = require('../controllers/authController');
+const { protect } = require('../middlewares/authMiddleware');
 
 // Register route
-router.post('/register', userRegister);
+router.post('/register', authController.userRegister);
 
 // Login route
-router.post('/login', userLogin);
+router.post('/login', authController.userLogin);
+
+// Get staff and management users (protected route)
+router.get('/staff-management-users', protect, authController.getStaffAndManagementUsers);
 
 module.exports = router;

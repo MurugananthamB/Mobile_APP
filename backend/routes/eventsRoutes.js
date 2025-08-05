@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
-const { getEvents, getEventById, registerForEvent, createEvent, clearAllEvents } = require('../controllers/eventsController');
+const { getEvents, getEventById, registerForEvent, createEvent } = require('../controllers/eventsController');
 
 // All routes are protected
 router.use(protect);
@@ -19,7 +19,6 @@ router.get('/:id', getEventById);
 // POST /api/events/:id/register - Register for event
 router.post('/:id/register', registerForEvent);
 
-// DELETE /api/events/clear - Clear all events (management only)
-router.delete('/clear', clearAllEvents);
+
 
 module.exports = router; 

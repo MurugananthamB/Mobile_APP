@@ -11,7 +11,8 @@ const {
   removeDayManagement,
   updateDayManagement,
   getMarkedDays,
-  scanMarkAttendance // Import the new controller function
+  scanMarkAttendance, // Import the new controller function
+  markAttendanceForAllUsers // Import the new management function
 } = require('../controllers/attendanceController');
 
 // All routes are protected
@@ -44,5 +45,8 @@ router.delete('/day-management/:date', removeDayManagement);
 
 // PUT /api/attendance/day-management/:date - Update day management record
 router.put('/day-management/:date', updateDayManagement);
+
+// POST /api/attendance/mark-all-users - Mark attendance for all staff and management users (Management only)
+router.post('/mark-all-users', markAttendanceForAllUsers);
 
 module.exports = router; 

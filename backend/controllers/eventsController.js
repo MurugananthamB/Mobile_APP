@@ -53,7 +53,6 @@ exports.createEvent = async (req, res) => {
     const {
       title,
       description,
-      category,
       date,
       startTime,
       endTime,
@@ -66,16 +65,16 @@ exports.createEvent = async (req, res) => {
 
     // Validate required fields
     console.log('🔍 Validating required fields...');
-    console.log('Title:', !!title);
-    console.log('Description:', !!description);
-    console.log('Category:', !!category);
-    console.log('Date:', !!date);
-    console.log('StartTime:', !!startTime);
-    console.log('EndTime:', !!endTime);
-    console.log('Venue:', !!venue);
-    console.log('ValidityDate:', !!validityDate);
+    console.log('Title:', !!title, title);
+    console.log('Description:', !!description, description);
+    console.log('Date:', !!date, date);
+    console.log('StartTime:', !!startTime, startTime);
+    console.log('EndTime:', !!endTime, endTime);
+    console.log('Venue:', !!venue, venue);
+    console.log('ValidityDate:', !!validityDate, validityDate);
+    console.log('Organizer:', !!organizer, organizer);
     
-    if (!title || !description || !category || !date || !startTime || !endTime || !venue || !validityDate) {
+    if (!title || !description || !date || !startTime || !endTime || !venue || !validityDate || !organizer) {
       console.log('❌ Validation failed - missing required fields');
       return res.status(400).json({ 
         success: false, 
@@ -91,6 +90,11 @@ exports.createEvent = async (req, res) => {
     const eventDate = new Date(date);
     const validity = new Date(validityDate);
     const today = new Date();
+    
+    // Reset time to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    validity.setHours(0, 0, 0, 0);
     
     console.log('Parsed eventDate:', eventDate);
     console.log('Parsed validity:', validity);
@@ -114,6 +118,7 @@ exports.createEvent = async (req, res) => {
       });
     }
 
+    // Allow event date to be today (exact creation date)
     if (eventDate < today) {
       console.log('❌ Event date cannot be in the past');
       return res.status(400).json({ 
@@ -122,20 +127,33 @@ exports.createEvent = async (req, res) => {
       });
     }
 
-    if (validity < eventDate) {
-      console.log('❌ Validity date cannot be before event date');
+    // Allow validity date to be today or future
+    if (validity < today) {
+      console.log('❌ Validity date cannot be in the past');
       return res.status(400).json({ 
         success: false, 
-        message: 'Validity date cannot be before event date' 
+        message: 'Validity date cannot be in the past' 
+      });
+    }
+
+    if (validity > eventDate) {
+      console.log('❌ Validity date cannot be after event date');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validity date cannot be after event date' 
       });
     }
 
     // Create event
     console.log('📝 Creating event...');
+    console.log('👤 User object:', req.user);
+    console.log('📝 Organizer from request:', organizer);
+    console.log('👤 User name:', req.user.name);
+    console.log('📝 Final organizer value:', organizer || req.user.name);
+    
     const event = new Event({
       title,
       description,
-      category,
       date: eventDate,
       startTime,
       endTime,
@@ -242,45 +260,4 @@ exports.registerForEvent = async (req, res) => {
   }
 }; 
 
-// Clear all events (for testing/cleanup)
-exports.clearAllEvents = async (req, res) => {
-  try {
-    console.log('🗑️ Clear All Events Request Received');
-    console.log('👤 User:', req.user);
-    
-    // Check if user has permission (management only)
-    if (req.user.role !== 'management') {
-      console.log('❌ Permission denied - User role:', req.user.role);
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Only management can clear all events' 
-      });
-    }
-
-    // Get count before deletion
-    const eventCount = await Event.countDocuments();
-    console.log(`📊 Found ${eventCount} events to delete`);
-
-    // Delete all events
-    const result = await Event.deleteMany({});
-    
-    console.log('✅ Events cleared successfully:', {
-      deletedCount: result.deletedCount,
-      totalEvents: eventCount,
-      clearedBy: req.user.name,
-      userRole: req.user.role
-    });
-
-    res.json({ 
-      success: true, 
-      message: `Successfully cleared ${result.deletedCount} events`,
-      data: {
-        deletedCount: result.deletedCount,
-        totalEvents: eventCount
-      }
-    });
-  } catch (error) {
-    console.error('❌ Error clearing events:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
-  }
-}; 
+ 

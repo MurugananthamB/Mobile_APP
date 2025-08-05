@@ -8,42 +8,32 @@ import ApiService from '../services/api';
 
 export default function HostelScreen() {
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const fetchUserProfile = async () => {
     try {
-      setLoading(true);
-      // Get stored user data first
+      // Get stored user data first - this is immediate
       const storedUserData = await ApiService.getStoredUserData();
-
-      // Fetch fresh profile data from API
-      const profileResponse = await ApiService.getProfile();
-
-      // Combine stored data with API data
-      const combinedUserData = {
-        ...storedUserData,
-        ...profileResponse.user,
-      };
-
       
-      
-      setUserData(combinedUserData);
-    } catch (error) {
-      console.error('❌ Error fetching profile:', error);
-      Alert.alert('Error', 'Failed to load hostel information');
-      
-      // Fallback to stored user data if API fails
-      try {
-        const storedUserData = await ApiService.getStoredUserData();
-
-        if (storedUserData) {
-          setUserData(storedUserData);
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback error:', fallbackError);
+      if (storedUserData) {
+        setUserData(storedUserData);
       }
-    } finally {
-      setLoading(false);
+
+      // Fetch fresh profile data from API in background (optional)
+      try {
+        const profileResponse = await ApiService.getProfile();
+        const combinedUserData = {
+          ...storedUserData,
+          ...profileResponse.user,
+        };
+        setUserData(combinedUserData);
+      } catch (apiError) {
+        console.log('⚠️ API fetch failed, using stored data:', apiError.message);
+        // Continue with stored data if API fails
+      }
+    } catch (error) {
+      console.error('❌ Error loading user data:', error);
+      Alert.alert('Error', 'Failed to load hostel information');
     }
   };
 
@@ -51,7 +41,7 @@ export default function HostelScreen() {
     fetchUserProfile();
   }, []);
 
-  if (loading) {
+  if (!userData) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>

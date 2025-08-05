@@ -188,7 +188,13 @@ export default function NotificationsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            // Navigate to home page since notifications is accessed from home
+            router.push('/(tabs)');
+          }} 
+          style={styles.backButton}
+        >
           <ArrowLeft size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerContent}>

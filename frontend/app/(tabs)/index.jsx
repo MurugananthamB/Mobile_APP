@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, Bookmark, LogOut } from 'lucide-react-native';
+import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, Bookmark } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import ApiService from '../../services/api';
@@ -12,11 +12,23 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [imageRefreshKey, setImageRefreshKey] = useState(0);
+  const [attendanceStats, setAttendanceStats] = useState({
+    totalDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    lateDays: 0,
+    holidayDays: 0,
+    leaveDays: 0,
+    workingDays: 0,
+    percentage: 0
+  });
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
 
   // Fetch user profile data on mount
   useEffect(() => {
     fetchUserProfile();
     fetchUnreadCount();
+    fetchAttendanceStats();
   }, []);
 
   // Refresh user data when screen comes into focus
@@ -25,6 +37,7 @@ export default function HomeScreen() {
       console.log('🏠 Home - Screen focused, refreshing profile data...');
       fetchUserProfile();
       fetchUnreadCount();
+      fetchAttendanceStats();
     }, [])
   );
 
@@ -71,19 +84,28 @@ export default function HomeScreen() {
     }
   };
 
-  const handleLogout = async () => {
+  const fetchAttendanceStats = async () => {
     try {
-      console.log('🚪 Logging out...');
-      await ApiService.logout();
-      console.log('🚪 Logout successful, navigating to login');
-      router.replace('/login');
+      setAttendanceLoading(true);
+      console.log('📊 Home - Fetching attendance stats...');
+      const response = await ApiService.getAttendanceStats();
+      console.log('📊 Home - Attendance stats response:', response);
+      
+      if (response.success && response.data) {
+        setAttendanceStats(response.data);
+        console.log('📊 Home - Attendance stats updated:', response.data);
+      } else {
+        console.log('📊 Home - No attendance stats available');
+      }
     } catch (error) {
-      console.error('🚪 Logout error:', error);
-      // Even if logout fails, clear local data and redirect
-      await ApiService.logout();
-      router.replace('/login');
+      console.error('📊 Home - Error fetching attendance stats:', error);
+      // Keep default values on error
+    } finally {
+      setAttendanceLoading(false);
     }
   };
+
+
 
   const handleNotificationPress = () => {
     router.push('/notifications');
@@ -94,6 +116,7 @@ export default function HomeScreen() {
     console.log('🏠 Home - Manual profile refresh triggered');
     fetchUserProfile();
     fetchUnreadCount();
+    fetchAttendanceStats();
   };
 
   // Get user display info with proper image URL construction, memoized for performance
@@ -219,9 +242,6 @@ export default function HomeScreen() {
                   </View>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <LogOut size={24} color="#ffffff" />
-              </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
@@ -240,35 +260,49 @@ export default function HomeScreen() {
               style={styles.attendanceGradient}
             >
               <View style={styles.attendanceHeader}>
-                                 <View style={styles.attendanceIcon}>
-                   <Calendar size={18} color="#ffffff" />
-                 </View>
+                <View style={styles.attendanceIcon}>
+                  <Calendar size={18} color="#ffffff" />
+                </View>
                 <View style={styles.attendanceStats}>
-                  <Text style={styles.attendancePercentage}>92%</Text>
+                  {attendanceLoading ? (
+                    <Text style={styles.attendancePercentage}>...</Text>
+                  ) : attendanceStats.totalDays > 0 ? (
+                    <Text style={styles.attendancePercentage}>{attendanceStats.percentage}%</Text>
+                  ) : (
+                    <Text style={styles.attendancePercentage}>0%</Text>
+                  )}
                   <Text style={styles.attendanceLabel}>Present</Text>
                 </View>
               </View>
               <View style={styles.attendanceDetails}>
                 <View style={styles.attendanceRow}>
                   <View style={styles.attendanceItem}>
-                    <Text style={styles.attendanceNumber}>18</Text>
+                    <Text style={styles.attendanceNumber}>
+                      {attendanceLoading ? '...' : attendanceStats.presentDays}
+                    </Text>
                     <Text style={styles.attendanceText}>Days Present</Text>
                   </View>
                   <View style={styles.attendanceItem}>
-                    <Text style={styles.attendanceNumber}>2</Text>
+                    <Text style={styles.attendanceNumber}>
+                      {attendanceLoading ? '...' : attendanceStats.absentDays}
+                    </Text>
                     <Text style={styles.attendanceText}>Days Absent</Text>
                   </View>
                   <View style={styles.attendanceItem}>
-                    <Text style={styles.attendanceNumber}>20</Text>
+                    <Text style={styles.attendanceNumber}>
+                      {attendanceLoading ? '...' : attendanceStats.totalDays}
+                    </Text>
                     <Text style={styles.attendanceText}>Total Days</Text>
                   </View>
                 </View>
               </View>
               <View style={styles.attendanceProgress}>
                 <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: '92%' }]} />
+                  <View style={[styles.progressFill, { width: `${attendanceStats.percentage || 0}%` }]} />
                 </View>
-                <Text style={styles.progressText}>92% attendance rate</Text>
+                <Text style={styles.progressText}>
+                  {attendanceLoading ? 'Loading...' : `${attendanceStats.percentage || 0}% attendance rate`}
+                </Text>
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -470,15 +504,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  logoutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
 
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
   section: {
     marginHorizontal: 16,

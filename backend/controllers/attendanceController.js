@@ -17,6 +17,7 @@ exports.getAttendance = async (req, res) => {
 
     if (!attendance) {
       // Return empty attendance record if none found
+      console.log(`📊 No attendance found for user ${req.user.id} in ${targetMonth}/${targetYear}`);
       return res.json({
         success: true,
         userId: req.user.id,
@@ -25,6 +26,11 @@ exports.getAttendance = async (req, res) => {
         records: [],
         totalDays: 0, presentDays: 0, absentDays: 0, lateDays: 0, holidayDays: 0, leaveDays: 0, workingDays: 0, percentage: 0
       });
+    }
+    console.log(`📊 Found attendance for user ${req.user.id} in ${targetMonth}/${targetYear}`);
+    console.log(`📊 Records count: ${attendance.records.length}`);
+    if (attendance.records.length > 0) {
+      console.log(`📊 Sample record:`, attendance.records[0]);
     }
     res.json({ success: true, data: attendance });
   } catch (error) {
@@ -529,4 +535,209 @@ exports.getMarkedDays = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
-}; 
+};
+
+// Mark attendance for all staff and management users (Management only)
+exports.markAttendanceForAllUsers = async (req, res) => {
+  try {
+    const { date, attendanceData } = req.body;
+    
+    // Check if user is management
+    if (req.user.role !== 'management') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied. Only management can mark attendance for all users.' 
+      });
+    }
+
+    const attendanceDate = new Date(date);
+    const month = attendanceDate.getMonth() + 1;
+    const year = attendanceDate.getFullYear();
+
+    // Validate attendance data
+    if (!attendanceData || !Array.isArray(attendanceData)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid attendance data format'
+      });
+    }
+
+    const results = [];
+    const errors = [];
+
+    // Process each user's attendance
+    for (const userAttendance of attendanceData) {
+      try {
+        const { userId, status } = userAttendance;
+        
+        if (!userId || !status) {
+          errors.push({ userId, error: 'Missing userId or status' });
+          continue;
+        }
+
+        // Validate status (0=working, 1=present, 2=absent)
+        if (![0, 1, 2].includes(status)) {
+          errors.push({ userId, error: 'Invalid status. Must be 0 (working), 1 (present), or 2 (absent)' });
+          continue;
+        }
+
+        // Convert status to string
+        let statusString;
+        switch (status) {
+          case 0:
+            statusString = 'working';
+            break;
+          case 1:
+            statusString = 'present';
+            break;
+          case 2:
+            statusString = 'absent';
+            break;
+          default:
+            statusString = 'working';
+        }
+
+        // Find or create attendance record for this user
+        let attendance = await Attendance.findOne({ 
+          userId: userId, 
+          month, 
+          year 
+        });
+
+        if (!attendance) {
+          attendance = new Attendance({
+            userId: userId,
+            month,
+            year,
+            records: []
+          });
+        }
+
+        // Check if record for this date already exists
+        const existingRecord = attendance.records.find(record => 
+          record.date.toDateString() === attendanceDate.toDateString()
+        );
+
+        console.log(`📝 Processing attendance for user ${userId} on date ${attendanceDate.toDateString()}`);
+        console.log(`📝 Status: ${statusString}`);
+        console.log(`📝 Existing record found: ${!!existingRecord}`);
+
+        if (existingRecord) {
+          existingRecord.status = statusString;
+          existingRecord.updatedAt = new Date();
+          console.log(`📝 Updated existing record for ${attendanceDate.toDateString()}`);
+        } else {
+          attendance.records.push({
+            date: attendanceDate,
+            status: statusString,
+            checkInTime: null,
+            checkOutTime: null,
+            remarks: `Marked by management on ${new Date().toLocaleDateString()}`
+          });
+          console.log(`📝 Added new record for ${attendanceDate.toDateString()}`);
+        }
+
+        await attendance.save();
+
+        // Recalculate monthly summary for this user
+        await recalculateAttendanceSummary(attendance, month, year);
+
+        results.push({ userId, status: statusString, success: true });
+      } catch (error) {
+        console.error(`Error marking attendance for user ${userAttendance.userId}:`, error);
+        errors.push({ userId: userAttendance.userId, error: error.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Attendance marked for ${results.length} users`,
+      data: {
+        successful: results,
+        errors: errors
+      }
+    });
+
+  } catch (error) {
+    console.error('Error marking attendance for all users:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+// Helper function to recalculate attendance summary
+async function recalculateAttendanceSummary(attendance, month, year) {
+  try {
+    let presentCount = 0;
+    let absentCount = 0;
+    let lateCount = 0;
+    let holidayCount = 0;
+    let leaveCount = 0;
+    let workingDaysCount = 0;
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    attendance.totalDays = daysInMonth;
+
+    const dayManagementRecords = await DayManagement.find({
+      date: {
+        $gte: new Date(year, month - 1, 1),
+        $lte: new Date(year, month - 1, daysInMonth)
+      }
+    });
+    
+    const markedDaysMap = dayManagementRecords.reduce((acc, day) => {
+      acc[day.date.toDateString()] = day.dayType;
+      return acc;
+    }, {});
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(year, month - 1, day);
+      const dateStr = currentDate.toDateString();
+      const record = attendance.records.find(r => r.date.toDateString() === dateStr);
+      const markedDayType = markedDaysMap[dateStr];
+
+      if (markedDayType === 'holiday') {
+        holidayCount++;
+      } else if (markedDayType === 'leave') {
+        leaveCount++;
+        workingDaysCount++;
+      } else if (markedDayType === 'working') {
+        workingDaysCount++;
+        if (record) {
+          if (record.status === 'present') {
+            presentCount++;
+            workingDaysCount++;
+          } else if (record.status === 'absent') {
+            absentCount++;
+          } else if (record.status === 'late') {
+            lateCount++;
+          }
+        } else {
+          absentCount++;
+        }
+      } else {
+        if (record) {
+          if (record.status === 'present') {
+            presentCount++;
+            workingDaysCount++;
+          } else if (record.status === 'absent') {
+            absentCount++;
+          } else if (record.status === 'late') {
+            lateCount++;
+          }
+        }
+      }
+    }
+
+    attendance.presentDays = presentCount;
+    attendance.absentDays = absentCount;
+    attendance.lateDays = lateCount;
+    attendance.holidayDays = holidayCount;
+    attendance.leaveDays = leaveCount;
+    attendance.workingDays = workingDaysCount;
+    attendance.percentage = workingDaysCount > 0 ? ((presentCount + lateCount) / workingDaysCount) * 100 : 0;
+
+    await attendance.save();
+  } catch (error) {
+    console.error('Error recalculating attendance summary:', error);
+  }
+} 

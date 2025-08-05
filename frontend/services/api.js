@@ -27,7 +27,7 @@ class ApiService {
           ...options.headers,
         },
         credentials: 'include', // ✅ Required for cookie/session-based auth
-  ...options
+        ...options
       };
 
       // Add token to headers if available
@@ -56,8 +56,27 @@ class ApiService {
       console.log('📡 Response status text:', response.statusText);
       console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
       
-      const data = await response.json();
-      console.log('📡 Response data:', data);
+      // Get response text first to check if it's HTML
+      const responseText = await response.text();
+      console.log('📡 Response text (first 200 chars):', responseText.substring(0, 200));
+      
+      // Check if response is HTML (error page)
+      if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+        console.error('❌ Server returned HTML instead of JSON');
+        console.error('❌ This usually means the server is down or returning an error page');
+        throw new Error('Server returned HTML instead of JSON. The server might be down or there might be a network issue.');
+      }
+      
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('📡 Response data:', data);
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON response:', parseError);
+        console.error('❌ Response text:', responseText);
+        throw new Error(`Invalid JSON response from server: ${responseText.substring(0, 100)}...`);
+      }
 
       if (!response.ok) {
         console.log('❌ API request failed:', response.status, data);
@@ -494,6 +513,19 @@ class ApiService {
   }
 
   // =============== UTILITY METHODS ===============
+
+  // Test API connectivity
+  async testConnection() {
+    try {
+      console.log('🧪 Testing API connection...');
+      const response = await this.makeRequest('/test');
+      console.log('✅ API connection test successful:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ API connection test failed:', error);
+      throw error;
+    }
+  }
 
   // Upload file (for homework submissions, etc.)
   async uploadFile(file, type = 'homework') {

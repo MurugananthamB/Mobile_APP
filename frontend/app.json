@@ -4,7 +4,7 @@
     "slug": "school-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/gbps.jpg",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -31,17 +31,17 @@
         }
       ]
     ],
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "355fde60-65ca-46b2-9354-bdb402f3dc47"
-      }
-    },
     "android": {
       "package": "com.aadarsh050.schoolmobileapp",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ]
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ed060981-c595-43a7-96fd-813c23c97479"
+      }
     }
   }
 }

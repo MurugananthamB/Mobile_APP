@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/db');
+
+// Routes
 const authRoutes = require('./routes/authRoutes');
 const protectedRoutes = require('./routes/protectedRoute');
 const feesRoutes = require('./routes/feesRoutes');
@@ -14,6 +16,7 @@ const eventsRoutes = require('./routes/eventsRoutes');
 const noticesRoutes = require('./routes/noticesRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 
+// Load environment variables
 dotenv.config();
 
 // Debug: Check if environment variables are loaded
@@ -26,28 +29,34 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
-connectDB();
+connectDB().catch(err => {
+  console.error('❌ Database connection error:', err);
+  process.exit(1);
+});
 
-// ✅ Enable CORS for all origins
-app.use(cors());
+// Enable CORS with explicit options
+app.use(cors({
+  origin: 'https://8081-firebase-mobileappgit-1754119877028.cluster-iktsryn7xnhpexlu6255bftka4.cloudworkstations.dev',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 
-// Middleware to parse JSON bodies with increased limit for attachments
+
+// Middleware to parse JSON and form data with large limits
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Serve static files for uploaded images
+// Serve static files from /uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Debug middleware to log all requests
+// Log incoming requests (for development)
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.path}`, req.body);
   next();
 });
 
-// Public Routes
+// Route definitions
 app.use('/api/auth', authRoutes);
-
-// Protected Routes (individual routes handle their own authentication)
 app.use('/api/protected', protectedRoutes);
 app.use('/api/fees', feesRoutes);
 app.use('/api/attendance', attendanceRoutes);
@@ -58,10 +67,21 @@ app.use('/api/schedules', scheduleRoutes);
 
 // Root Route
 app.get('/', (req, res) => {
-  res.send('Welcome to the School Mobile App Backend!');
+  res.send('🎓 Welcome to the School Mobile App Backend!');
 });
 
-// Start server
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('🔥 Server Error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Start the server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

@@ -16,44 +16,16 @@ exports.getAttendance = async (req, res) => {
     });
 
     if (!attendance) {
-      // Create default attendance record for current month
-      const defaultRecords = [];
-      const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-      
-      for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(targetYear, targetMonth - 1, day);
-        const dayOfWeek = date.getDay();
-        
-        // Skip Sundays (0) for school days
-        if (dayOfWeek !== 0 && day <= currentDate.getDate()) {
-          let status = 'present';
-          
-          // Add some realistic attendance pattern
-          if (day === 4 || day === 18) status = 'absent';
-          if (day === 9) status = 'late';
-          if (day === 14 || day === 21) status = 'holiday';
-          if (day === 23) status = 'leave';
-          if (day === 24) status = 'working';
-          
-          defaultRecords.push({
-            date: new Date(targetYear, targetMonth - 1, day),
-            status,
-            checkInTime: status === 'present' || status === 'late' ? '08:30' : null,
-            checkOutTime: status === 'present' || status === 'late' ? '15:30' : null,
-          });
-        }
-      }
-
-      attendance = new Attendance({
+      // Return empty attendance record if none found
+      return res.json({
+        success: true,
         userId: req.user.id,
         month: targetMonth,
         year: targetYear,
-        records: defaultRecords
+        records: [],
+        totalDays: 0, presentDays: 0, absentDays: 0, lateDays: 0, holidayDays: 0, leaveDays: 0, workingDays: 0, percentage: 0
       });
-
-      await attendance.save();
     }
-
     res.json({ success: true, data: attendance });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -152,16 +124,221 @@ exports.markAttendance = async (req, res) => {
 
     await attendance.save();
 
-    res.json({ 
-      success: true, 
-      message: 'Attendance marked successfully',
-      data: attendance 
+    // Recalculate monthly summary after saving the record
+    let presentCount = 0;
+    let absentCount = 0;
+    let lateCount = 0;
+    let holidayCount = 0;
+    let leaveCount = 0;
+    let workingDaysCount = 0;
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    attendance.totalDays = daysInMonth; // Assuming total days in month
+
+    const dayManagementRecords = await DayManagement.find({
+      date: {
+        $gte: new Date(year, month - 1, 1),
+        $lte: new Date(year, month - 1, daysInMonth)
+      }
     });
+    const markedDaysMap = dayManagementRecords.reduce((acc, day) => {
+      acc[day.date.toDateString()] = day.dayType;
+      return acc;
+    }, {});
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(year, month - 1, day);
+      const dateStr = currentDate.toDateString();
+      const record = attendance.records.find(r => r.date.toDateString() === dateStr);
+
+        const markedDayType = markedDaysMap[dateStr];
+
+      if (markedDayType === 'holiday') {
+        holidayCount++;
+      } else if (markedDayType === 'leave') {
+        leaveCount++;
+ workingDaysCount++; // Leaves count towards total working days
+      } else if (markedDayType === 'working') {
+        workingDaysCount++;
+        if (record) {
+          if (record.status === 'present') {
+            presentCount++;
+ workingDaysCount++; // Only count as a working day if marked present on an unmarked day
+          } else if (record.status === 'absent') {
+            absentCount++;
+          } else if (record.status === 'late') {
+            lateCount++;
+          }
+        } else {
+           // If it's a working day but no record, assume absent
+          absentCount++;
+        }
+      } else {
+        // Default behavior if not a marked day (consider weekends if applicable)
+         if (record) {
+          if (record.status === 'present') {
+            presentCount++;
+ workingDaysCount++; // Only count as a working day if marked present on an unmarked day
+          } else if (record.status === 'absent') {
+            absentCount++;
+          } else if (record.status === 'late') {
+            lateCount++;
+          }
+        }
+      }
+ }
+
+ // Update attendance document with calculated summary
+ attendance.presentDays = presentCount;
+ attendance.absentDays = absentCount;
+ attendance.lateDays = lateCount;
+ attendance.holidayDays = holidayCount;
+ attendance.leaveDays = leaveCount;
+ attendance.workingDays = workingDaysCount;
+ attendance.percentage = workingDaysCount > 0 ? ((presentCount + lateCount) / workingDaysCount) * 100 : 0;
+
+ await attendance.save(); // Save the updated summary
+
+ res.json({
+ success: true,
+ message: 'Attendance marked and summary updated successfully',
+      data: attendance
+    }
+ );
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
-  }
+ res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    }
 };
 
+// Mark attendance using scanned ID
+exports.scanMarkAttendance = async (req, res) => {
+  try {
+    const { userId } = req.body; // Extract userId from request body
+    console.log('Received userId in backend:', userId); // Log received userId
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    // Create a Date object representing the beginning of the current day
+    const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    // const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+ 
+    let attendance = await Attendance.findOne({ 
+      userId: userId, 
+      month: currentMonth, 
+      year: currentYear 
+    });
+ console.log('Attempting to find attendance for userId:', userId); // Log attempt to find attendance
+
+    if (!attendance) {
+      attendance = new Attendance({
+        userId: userId,
+        month: currentMonth,
+        year: currentYear,
+        records: []
+      });
+    }
+ console.log('Attendance found:', attendance); // Log the found or new attendance document
+
+    // Check if a record for today already exists
+    const existingRecordIndex = attendance.records.findIndex(record => 
+      record.date.toDateString() === today.toDateString()
+    );
+
+    const checkInTime = '09:00';
+    const checkOutTime = '16:00';
+
+    if (existingRecordIndex > -1) {
+      // Update existing record for subsequent scans (check-out)
+      attendance.records[existingRecordIndex].dayType = 'full-day';
+      attendance.records[existingRecordIndex].checkOutTime = checkOutTime;
+    } else {
+      // Add new record for today
+      // Create new record for the first scan of the day (check-in)
+      attendance.records.push({ date: today, status: 'present', dayType: 'half-day', checkInTime: checkInTime });
+    }
+
+ console.log('Attempting to save attendance:', attendance); // Log the attendance document before saving
+    await attendance.save();
+ console.log('Attendance saved successfully!'); // Log successful save
+
+    // Recalculate monthly summary after saving the record - This section needs review for the new dayType field
+    let presentCount = 0;
+    let absentCount = 0;
+    let lateCount = 0;
+    let holidayCount = 0;
+    let leaveCount = 0;
+    let workingDaysCount = 0;
+
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    attendance.totalDays = daysInMonth; // Assuming total days in month
+
+     const dayManagementRecords = await DayManagement.find({
+      date: {
+        $gte: new Date(currentYear, currentMonth - 1, 1),
+        $lte: new Date(currentYear, currentMonth - 1, daysInMonth)
+      }
+    });
+    const markedDaysMap = dayManagementRecords.reduce((acc, day) => {
+      acc[day.date.toDateString()] = day.dayType;
+      return acc;
+    }, {});
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(currentYear, currentMonth - 1, day);
+      const dateStr = currentDate.toDateString();
+      const record = attendance.records.find(r => r.date.toDateString() === dateStr);
+      const markedDayType = markedDaysMap[dateStr];
+
+       if (markedDayType === 'holiday') {
+        holidayCount++;
+      } else if (markedDayType === 'leave') {
+        leaveCount++;
+      } else if (markedDayType === 'working') {
+ workingDaysCount++;
+        if (record) {
+          if (record.status === 'present') {
+          } else if (record.status === 'absent') {
+            absentCount++;
+          } else if (record.status === 'late') {
+            lateCount++;
+          }
+        } else {
+           // If it's a working day but no record, assume absent
+          absentCount++;
+        }
+      } else {
+        // Default behavior if not a marked day (consider weekends if applicable)
+         if (record) {
+          if (record.status === 'present') {
+            presentCount++;
+          } else if (record.status === 'absent') {
+            absentCount++;
+          } else if (record.status === 'late') {
+            lateCount++;
+          }
+        }
+      }
+    }
+
+ // Update attendance document with calculated summary
+ attendance.presentDays = presentCount;
+ attendance.absentDays = absentCount;
+ attendance.lateDays = lateCount;
+ attendance.holidayDays = holidayCount;
+ attendance.leaveDays = leaveCount;
+ attendance.workingDays = workingDaysCount;
+ attendance.percentage = workingDaysCount > 0 ? ((presentCount + lateCount) / workingDaysCount) * 100 : 0;
+
+ console.log('Attempting to save attendance with updated summary:', attendance);
+ await attendance.save(); // Save the updated summary
+ console.log('Attendance with updated summary saved successfully!');
+    res.json({ success: true, message: `Attendance marked for user ${userId}`, data: attendance });
+  } catch (error) {
+ console.error('Error in scanMarkAttendance:', error);
+ res.status(500).json({ success: false, message: 'Server error', error: error.message });
+ console.error('Error details:', error); // Log error details
+  }
+};
 // Day Management Functions (for management users)
 
 // Add a new day management record

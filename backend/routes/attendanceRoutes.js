@@ -4,13 +4,14 @@ const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
 const { 
   getAttendance, 
-  getAttendanceStats, 
+ getAttendanceStats,
   markAttendance,
   addDayManagement,
   getDayManagement,
   removeDayManagement,
   updateDayManagement,
-  getMarkedDays
+  getMarkedDays,
+  scanMarkAttendance // Import the new controller function
 } = require('../controllers/attendanceController');
 
 // All routes are protected
@@ -24,6 +25,9 @@ router.get('/stats', getAttendanceStats);
 
 // POST /api/attendance/mark - Mark attendance (for staff/admin)
 router.post('/mark', markAttendance);
+
+// POST /api/attendance/scan-mark - Mark attendance via scanned ID
+router.post('/scan-mark', scanMarkAttendance);
 
 // Day Management Routes (for management users)
 // GET /api/attendance/marked-days - Get marked days for calendar display

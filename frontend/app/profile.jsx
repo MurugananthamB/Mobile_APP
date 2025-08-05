@@ -9,9 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Get BASE_URL from ApiService
-const BASE_URL = __DEV__ 
-  ? 'http://192.168.101.45:5000'  // Your computer's IP address
-  : 'https://mobile-app-5diq.onrender.com'; // Production
+const BASE_URL = 'https://5000-firebase-mobileappgit-1754119877028.cluster-iktsryn7xnhpexlu6255bftka4.cloudworkstations.dev'; // Cloud Workstation URL
 
 export default function ProfileScreen() {
   const [userData, setUserData] = useState(null);

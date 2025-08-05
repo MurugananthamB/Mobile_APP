@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, Bookmark, LogOut } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ApiService from '../../services/api';
 
 export default function HomeScreen() {
@@ -67,7 +67,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Get user display info with proper image URL construction
+  // Get user display info with proper image URL construction, memoized for performance
   const getUserDisplayInfo = () => {
     if (!userInfo) return { name: 'Loading...', subtitle: '', profileImageUrl: null };
     
@@ -102,7 +102,7 @@ export default function HomeScreen() {
         profileImageUrl = `${userInfo.profileImage}?t=${Date.now()}`;
       } else {
         // If it's a path, construct the full URL
-        const baseUrl = 'http://192.168.101.45:5000';
+        const baseUrl = ApiService.BASE_URL; // Use BASE_URL from api.js
         profileImageUrl = `${baseUrl}${userInfo.profileImage}?t=${Date.now()}`;
       }
     }
@@ -117,7 +117,7 @@ export default function HomeScreen() {
     
     return { name, subtitle, profileImageUrl };
   };
-
+ 
   const displayInfo = getUserDisplayInfo();
 
   // Show loading state while fetching user data

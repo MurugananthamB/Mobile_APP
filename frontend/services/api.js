@@ -5,8 +5,8 @@ import { Platform } from 'react-native';
 // Base URL for your backend
 // For React Native, use your computer's IP address instead of localhost
 const BASE_URL = __DEV__ 
-  ? 'http://192.168.101.45:5000/api'  // Your computer's IP address
-  : 'https://mobile-app-5diq.onrender.com/api'; // Production
+  ? 'https://5000-firebase-mobileappgit-1754119877028.cluster-iktsryn7xnhpexlu6255bftka4.cloudworkstations.dev/api'  // Development backend URL
+  : 'https://mobile-app-5diq.onrender.com/api'; // Production backend URL
 
 class ApiService {
   constructor() {
@@ -26,7 +26,8 @@ class ApiService {
           'Content-Type': 'application/json',
           ...options.headers,
         },
-        ...options,
+        credentials: 'include', // ✅ Required for cookie/session-based auth
+  ...options
       };
 
       // Add token to headers if available
@@ -295,6 +296,13 @@ class ApiService {
     return await this.makeRequest('/attendance/mark', {
       method: 'POST',
       body: JSON.stringify(attendanceData),
+    });
+  }
+
+  async scanMarkAttendance(userId) {
+    return await this.makeRequest('/attendance/scan-mark', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
     });
   }
 

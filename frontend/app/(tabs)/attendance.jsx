@@ -1,51 +1,109 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, TrendingUp, Clock, XCircle, CheckCircle, Settings, Users, UserCheck } from 'lucide-react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Calendar, Settings, UserCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { AntDesign } from '@expo/vector-icons';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import ApiService from '../../services/api';
 
 export default function AttendanceScreen() {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const router = useRouter(); // Initialize useRouter
   const [userRole, setUserRole] = useState(null);
   const [isManagement, setIsManagement] = useState(false);
-  const [markedDays, setMarkedDays] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [showDayTypeModal, setShowDayTypeModal] = useState(false);
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
-  const router = useRouter();
+  const [markedDays, setMarkedDays] = useState([]); // Initialize markedDays as an array
+  const [individualAttendance, setIndividualAttendance] = useState([]); // New state for individual attendance
+  const [showDayTypeModal, setShowDayTypeModal] = useState(false); // State for modal visibility
+  const [currentMonth, setCurrentMonth] = useState(new Date()); // State for the currently displayed month
+  const [loading, setLoading] = useState(true); // Overall loading state
+  const [loadingStats, setLoadingStats] = useState(false); // Loading state specifically for attendance stats
+  const [attendanceSummary, setAttendanceSummary] = useState({
+ totalDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    percentage: 0,
+  });
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // New state for selected date
 
   // Check user role on component mount
   useEffect(() => {
     checkUserRole();
   }, []);
 
-  // Load marked days when component mounts or month changes
+  // Load data when the component mounts and when the month changes or modal is closed (after setting day type)
   useEffect(() => {
     loadMarkedDays();
-  }, [currentMonth]);
+    loadAttendanceStats();
+    loadIndividualAttendance();
+  }, [currentMonth, showDayTypeModal]); // Depend on currentMonth and showDayTypeModal
 
-  const loadMarkedDays = async () => {
+  const reloadMarkedDays = async () => { // Corrected function definition
     try {
       const month = currentMonth.getMonth() + 1;
       const year = currentMonth.getFullYear();
-      
       const response = await ApiService.getMarkedDays(month, year);
       
       if (response.success) {
-        setMarkedDays(response.data);
+        // Transform the array response into an object for easier lookup
+        const markedDaysObject = response.data;
+        setMarkedDays(markedDaysObject);
       }
     } catch (error) {
-      console.error('Error loading marked days:', error);
+      console.error('Error loading marked days:', error); // eslint-disable-line no-console
+    }
+  };
+
+  const loadMarkedDays = useCallback(async () => {
+    try {
+      const month = currentMonth.getMonth() + 1;
+      const year = currentMonth.getFullYear();
+      const response = await ApiService.getMarkedDays(month, year);
+      if (response.success) {
+        setMarkedDays(response.data); // Assuming the backend returns an object { "date": "dayType" }
+      }
+    } catch (error) {
+      console.error('Error loading marked days:', error); // eslint-disable-line no-console
+    }
+  }, [currentMonth]);
+
+
+  const loadAttendanceStats = async () => {
+    try {
+      setLoadingStats(true);
+      const month = currentMonth.getMonth() + 1;
+      const year = currentMonth.getFullYear();
+      // Assuming your getAttendanceStats API can take month/year params or fetches current month
+      const response = await ApiService.getAttendanceStats(month, year); 
+      if (response.success) {
+        setAttendanceSummary(response.data);
+        console.log('Attendance Summary after setting state:', response.data);
+      } else {
+        setAttendanceSummary({ totalDays: 0, presentDays: 0, absentDays: 0, percentage: 0 }); // Reset on error
+        console.error('Error loading attendance stats:', response.message); // eslint-disable-line no-console
+      }
+    } catch (error) {
+ console.error('Error loading attendance stats:', error);
+    } finally { setLoadingStats(false); } // You might set a loading state for stats specifically if needed
+  };
+
+  
+  const loadIndividualAttendance = async () => {
+    try {
+      const month = currentMonth.getMonth() + 1;
+      const year = currentMonth.getFullYear();
+      const response = await ApiService.getAttendance(month, year); // Assuming getAttendance takes month/year
+      if (response.success) {
+        setIndividualAttendance(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading individual attendance:', error);
+      setIndividualAttendance([]); // Reset on error
     }
   };
 
   const checkUserRole = async () => {
     try {
       const userData = await ApiService.getStoredUserData();
-      
       if (userData && userData.role) {
         setUserRole(userData.role);
         setIsManagement(userData.role === 'management');
@@ -62,7 +120,6 @@ export default function AttendanceScreen() {
       // Non-management users can only view
       return;
     }
-
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     setSelectedCalendarDate(dateStr);
     setShowDayTypeModal(true);
@@ -98,6 +155,7 @@ export default function AttendanceScreen() {
           [dateStr]: dayType
         }));
         
+        // No need to manually call loadMarkedDays, the useEffect dependency handles it.
         const action = isAlreadyMarked ? 'updated' : 'set';
         Alert.alert('Success', `${dayType.charAt(0).toUpperCase() + dayType.slice(1)} day ${action} successfully!`);
       }
@@ -106,25 +164,61 @@ export default function AttendanceScreen() {
       Alert.alert('Error', 'Failed to set day type. Please try again.');
     } finally {
       setShowDayTypeModal(false);
-      setSelectedCalendarDate(null);
+      setSelectedCalendarDate(null); // Clear selected date
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'holiday': return '#ef4444'; // Red
-      case 'leave': return '#f59e0b'; // Orange
-      case 'working': return '#10b981'; // Green
-      default: return '#6b7280'; // Gray
+  // Helper to get individual attendance for a specific date
+  // Ensure individualAttendance is an array before calling find
+  const getIndividualStatusForDate = (dateStr) => {
+    // Check if individualAttendance is an array and has data
+    if (!Array.isArray(individualAttendance)) return null;
+
+    // Convert item.date (Date object) to 'YYYY-MM-DD' string for comparison
+    const record = individualAttendance.find(item => {
+      if (item.date instanceof Date) {
+        return item.date.toISOString().split('T')[0] === dateStr;
+      }
+      // Handle cases where item.date might not be a Date object (though it should be)
+      return false;
+    });
+
+    if (record && record.status) {
+      return record.status.toLowerCase(); 
+    } else {
+      // If no individual attendance, check management-defined type
+      const managementType = markedDays[dateStr];
+      if (managementType) {
+        return managementType.toLowerCase();
     }
+    }
+    return null; // No status found
+
   };
 
-  const getStatusText = (status) => {
+  const getIndicatorText = (status) => {
     switch (status) {
+      case 'present': return 'P';
+      case 'absent': return 'A';
+      case 'late': return 'L';
+      // Fallback to management-defined types if no individual attendance
       case 'holiday': return 'H';
-      case 'leave': return 'L';
+ case 'leave': return 'LE'; // Using 'LE' for Leave to distinguish from Late 'L'
       case 'working': return 'W';
       default: return '';
+    }
+  };
+
+  // Helper to get the color for the status indicator (consolidated)
+  const getIndicatorColor = (status) => {
+    switch (status) {
+ case 'present': return '#10b981'; // Green
+ case 'absent': return '#ef4444'; // Red
+ case 'late': return '#f59e0b'; // Amber
+ case 'holiday': return '#6b7280'; // Gray
+ case 'leave': return '#8b5cf6'; // Purple for Leave
+ case 'working': return '#10b981'; // Green (can be same as present)
+ default: return '#d1d5db'; // Light gray for unknown
     }
   };
 
@@ -158,15 +252,7 @@ export default function AttendanceScreen() {
       return newDate;
     });
   };
-
-  const attendanceData = {
-    totalDays: 22,
-    presentDays: 20,
-    absentDays: 2,
-    lateDays: 1,
-    percentage: 90.9
-  };
-
+  
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -203,33 +289,49 @@ export default function AttendanceScreen() {
           
           <View style={styles.attendanceStats}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{attendanceData.totalDays}</Text>
+              <Text style={styles.statNumber}>{attendanceSummary.totalDays}</Text>
               <Text style={styles.statLabel}>Total Days</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{attendanceData.presentDays}</Text>
+              <Text style={styles.statNumber}>{attendanceSummary.presentDays}</Text>
               <Text style={styles.statLabel}>Present</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{attendanceData.absentDays}</Text>
+              <Text style={styles.statNumber}>{attendanceSummary.absentDays}</Text>
               <Text style={styles.statLabel}>Absent</Text>
             </View>
+ <View style={styles.statItem}>
+ <Text style={styles.statNumber}>{attendanceSummary.lateDays}</Text>
+ <Text style={styles.statLabel}>Late</Text>
+ </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{attendanceData.percentage}%</Text>
+              <Text style={styles.statNumber}>{attendanceSummary.holidayDays}</Text>
+              <Text style={styles.statLabel}>Holiday</Text>
+            </View>
+ <View style={styles.statItem}>
+ <Text style={styles.statNumber}>{attendanceSummary.leaveDays}</Text>
+ <Text style={styles.statLabel}>Leave</Text>
+ </View>
+ <View style={styles.statItem}>
+ <Text style={styles.statNumber}>{attendanceSummary.workingDays}</Text>
+ <Text style={styles.statLabel}>Working</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{attendanceSummary.percentage}%</Text>
               <Text style={styles.statLabel}>Percentage</Text>
             </View>
-          </View>
+          </View> 
           
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${attendanceData.percentage}%` }
-                ]} 
+                  { width: `${attendanceSummary.percentage}%` }
+                ]}
               />
             </View>
-            <Text style={styles.progressText}>{attendanceData.percentage}%</Text>
+            <Text style={styles.progressText}>{attendanceSummary.percentage}%</Text>
           </View>
         </LinearGradient>
 
@@ -241,6 +343,18 @@ export default function AttendanceScreen() {
             </Text>
           </View>
         )}
+
+        {/* Scan Attendance Button (Visible based on role) */}
+        {isManagement && ( // Example: Only show for management role
+          <TouchableOpacity
+            style={styles.scanAttendanceButton}
+            onPress={() => router.push('/(management)/scanAttendance')}
+          >
+            <UserCheck size={20} color="#ffffff" />
+            <Text style={styles.scanAttendanceButtonText}>Scan Attendance</Text>
+          </TouchableOpacity>
+        )}
+
 
         {/* Calendar Navigation */}
         <View style={styles.calendarHeader}>
@@ -272,10 +386,22 @@ export default function AttendanceScreen() {
               }
 
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const dayType = markedDays[dateStr];
-              const statusColor = getStatusColor(dayType);
-              const statusText = getStatusText(dayType);
+              
+              // Check for individual attendance first
+              // Convert item.date (Date object) to 'YYYY-MM-DD' string for comparison
+              const individualRecord = Array.isArray(individualAttendance) ? individualAttendance.find(record => {
+                if (record.date instanceof Date) {
+                  return record.date.toISOString().split('T')[0] === dateStr;
+                }
+              }) : null;
+              let displayStatus = individualRecord ? individualRecord.status.toLowerCase() : null;
 
+              // If no individual attendance, check for management-defined marked day
+              if (!displayStatus) {
+                  displayStatus = markedDays[dateStr];
+              }
+              console.log('Date:', dateStr, 'Individual Record:', individualRecord, 'Display Status:', displayStatus);
+              
               return (
                 <TouchableOpacity 
                   key={index} 
@@ -286,9 +412,21 @@ export default function AttendanceScreen() {
                   onPress={() => handleCalendarDayPress(day)}
                 >
                   <Text style={styles.dayNumber}>{day}</Text>
-                  {dayType && (
-                    <View style={[styles.statusIndicator, { backgroundColor: statusColor }]}>
-                      <Text style={styles.statusText}>{statusText}</Text>
+                  {/* Display status indicator if a status is determined */}
+                  {displayStatus && (
+                    <View style={[styles.statusIndicator, { backgroundColor: getIndicatorColor(displayStatus) }]}>
+                      <Text style={styles.statusText}>{getIndicatorText(displayStatus)}</Text>
+                    </View>
+                  )}
+                  {/* Display 'Present' or 'Absent' text below day number */}
+                  {individualRecord && (
+                    <View>
+                      {individualRecord.status === 'present' && (
+                        <Text style={[styles.dayStatusText, { color: '#10b981' }]}>Present</Text>
+                      )}
+                      {individualRecord.status === 'absent' && (
+                        <Text style={[styles.dayStatusText, { color: '#ef4444' }]}>Absent</Text>
+                      )}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -311,58 +449,60 @@ export default function AttendanceScreen() {
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendColor, { backgroundColor: '#f59e0b' }]} />
-              <Text style={styles.legendText}>Leave (L)</Text>
+              <Text style={styles.legendText}>Late (L)</Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
       {/* Day Type Selection Modal */}
-      <Modal
-        visible={showDayTypeModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowDayTypeModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Set Day Type</Text>
-            <Text style={styles.modalSubtitle}>
-              {selectedCalendarDate && new Date(selectedCalendarDate).toLocaleDateString()}
-            </Text>
-            
-            <View style={styles.dayTypeOptions}>
-              <TouchableOpacity 
-                style={[styles.dayTypeOption, { backgroundColor: '#10b981' }]}
-                onPress={() => handleSetDayType('working')}
-              >
-                <Text style={styles.dayTypeText}>Working</Text>
-              </TouchableOpacity>
+      {showDayTypeModal && (
+        <Modal
+          visible={showDayTypeModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowDayTypeModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Set Day Type</Text>
+              <Text style={styles.modalSubtitle}>
+                {selectedCalendarDate && new Date(selectedCalendarDate).toLocaleDateString()}
+              </Text>
+              
+              <View style={styles.dayTypeOptions}>
+                <TouchableOpacity 
+                  style={[styles.dayTypeOption, { backgroundColor: '#10b981' }]}
+                  onPress={() => handleSetDayType('working')}
+                >
+                  <Text style={styles.dayTypeText}>Working</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.dayTypeOption, { backgroundColor: '#ef4444' }]}
+                  onPress={() => handleSetDayType('holiday')}
+                >
+                  <Text style={styles.dayTypeText}>Holiday</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.dayTypeOption, { backgroundColor: '#f59e0b' }]}
+                  onPress={() => handleSetDayType('leave')} // Use purple for leave in modal button too?
+                >
+                  <Text style={styles.dayTypeText}>Leave</Text>
+                </TouchableOpacity>
+              </View>
               
               <TouchableOpacity 
-                style={[styles.dayTypeOption, { backgroundColor: '#ef4444' }]}
-                onPress={() => handleSetDayType('holiday')}
+                style={styles.cancelButton}
+                onPress={() => setShowDayTypeModal(false)}
               >
-                <Text style={styles.dayTypeText}>Holiday</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.dayTypeOption, { backgroundColor: '#f59e0b' }]}
-                onPress={() => handleSetDayType('leave')}
-              >
-                <Text style={styles.dayTypeText}>Leave</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity 
-              style={styles.cancelButton}
-              onPress={() => setShowDayTypeModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -633,5 +773,46 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6b7280',
     textAlign: 'center',
+  },
+  scanAttendanceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1e40af', // A distinct color for the scan button
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 20, // Add some space below summary or notice
+  },
+  scanAttendanceButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  scanSection: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  scanLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  scanInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scanInput: {
+    flex: 1,
+    height: 40,
+    borderColor: '#d1d5db',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginRight: 10,
+    backgroundColor: '#ffffff',
   },
 });

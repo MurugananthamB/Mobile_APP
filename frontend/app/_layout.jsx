@@ -26,6 +26,7 @@ export default function RootLayout() {
         <Stack.Screen name="events" />
         <Stack.Screen name="hostel" />
         <Stack.Screen name="hostel-attendance" />
+        <Stack.Screen name="scanAttendance" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

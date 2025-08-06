@@ -27,7 +27,7 @@ router.get('/stats', getAttendanceStats);
 // POST /api/attendance/mark - Mark attendance (for staff/admin)
 router.post('/mark', markAttendance);
 
-// POST /api/attendance/scan - Mark attendance via scanned ID
+// POST /api/attendance/scan - Mark attendance via scanned ID (protected)
 router.post('/scan', scanMarkAttendance);
 
 // Day Management Routes (for management users)

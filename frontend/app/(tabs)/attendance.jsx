@@ -37,17 +37,7 @@ export default function AttendanceScreen() {
     loadIndividualAttendance();
   }, [currentMonth, showDayTypeModal]); // Depend on currentMonth and showDayTypeModal
 
-  // Preload scan attendance page for instant navigation
-  useEffect(() => {
-    if (isManagement) {
-      // Preload the scan attendance page by prefetching the route
-      try {
-        router.prefetch('/scanAttendance');
-      } catch (error) {
-        console.log('Prefetch error:', error);
-      }
-    }
-  }, [isManagement, router]);
+
 
   // Reset navigation state when component focuses
   useEffect(() => {
@@ -375,17 +365,14 @@ export default function AttendanceScreen() {
 
         {/* Management Buttons (Visible based on role) */}
         {isManagement && (
-          <>
-            <TouchableOpacity
-              // style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]} // Removed scanAttendanceButton style
-              style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]}
-              onPress={() => router.push('/management-attendance')}
-              activeOpacity={0.7}
-            >
-              <Users size={20} color="#ffffff" />
-              <Text style={styles.scanAttendanceButtonText}>Mark All Users</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]}
+            onPress={() => router.push('/management-attendance')}
+            activeOpacity={0.7}
+          >
+            <Users size={20} color="#ffffff" />
+            <Text style={styles.scanAttendanceButtonText}>Mark All Users</Text>
+          </TouchableOpacity>
         )}
 
         {/* Calendar Navigation */}

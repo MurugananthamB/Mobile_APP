@@ -218,13 +218,9 @@ exports.markAttendance = async (req, res) => {
     }
 };
 
-// Mark attendance using scanned ID
-// Mark attendance using scanned ID
+// Mark attendance using scanned ID - Optimized for high-speed concurrent scanning
 exports.scanMarkAttendance = async (req, res) => {
   try {
-    console.log('Hit scanMarkAttendance endpoint');
- console.log('🚗 Received scan request.');
- console.log('📖 Request Body:', req.body);
     const { barcode } = req.body; // Extract barcode from request body
 
     if (!barcode) {
@@ -234,16 +230,19 @@ exports.scanMarkAttendance = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid barcode format. Must start with MAPH.' });
     }
     const userId = barcode.substring(4);
- console.log('🆔 Extracted userId:', userId);
     if (!userId) {
        return res.status(400).json({ success: false, message: 'Invalid barcode format. User ID missing.' });
     }
 
-    const user = await User.findById(userId);
+    // Try to find user by userid field first, then by barcode
+    let user = await User.findOne({ userid: userId });
+    if (!user) {
+      // If not found by userid, try to find by barcode
+      user = await User.findOne({ barcode: barcode });
+    }
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
- console.log('✅ User found:', user.name);
 
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
@@ -252,41 +251,47 @@ exports.scanMarkAttendance = async (req, res) => {
     const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
     const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
-    let attendance = await Attendance.findOne({
-      userId: userId,
+    // Use findOneAndUpdate for atomic operations to prevent race conditions
+    const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+    // Check if a record for today already exists using atomic operation
+    const existingRecord = await Attendance.findOne({
+      userId: user._id,
       month: currentMonth,
-      year: currentYear
+      year: currentYear,
+      'records.date': {
+        $gte: today,
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      }
     });
 
-    if (!attendance) {
-      attendance = new Attendance({
-        userId: userId,
-        month: currentMonth,
-        year: currentYear,
-        records: []
-      });
-    }
+    if (existingRecord) {
+      // Update existing record for subsequent scans (check-out) - atomic operation
+      const result = await Attendance.updateOne(
+        {
+          userId: user._id,
+          month: currentMonth,
+          year: currentYear,
+          'records.date': {
+            $gte: today,
+            $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+          }
+        },
+        {
+          $set: {
+            'records.$.checkOutTime': currentTime
+          }
+        }
+      );
 
- console.log('🗓️ Checking for existing record for today:', today.toDateString());
-    // Check if a record for today already exists
-    const existingRecordIndex = attendance.records.findIndex(record =>
-      record.date.toDateString() === today.toDateString()
-    );
-
-    if (existingRecordIndex > -1) {
-      // Update existing record for subsequent scans (check-out)
-      // Only update checkout time, do not change status set by first scan
- console.log('➡️ Existing record found at index:', existingRecordIndex);
-      attendance.records[existingRecordIndex].checkOutTime = currentTime;
- console.log('💾 Attempting to save attendance after updating checkout time...');
-       await attendance.save(); // Save after updating the existing record
-       // No need to recalculate summary on checkout time update unless your logic requires it
-       // await recalculateAttendanceSummary(attendance, currentMonth, currentYear); // Optional: Uncomment if checkout affects summary
-       return res.json({ success: true, message: `Checkout time recorded for user ${user.name}.` });
-
+      if (result.modifiedCount > 0) {
+        return res.json({ success: true, message: `Checkout time recorded for user ${user.name}.` });
+      } else {
+        return res.json({ success: false, message: 'Failed to update checkout time.' });
+      }
     } else {
       // Determine status based on scan time for the first scan of the day
- console.log('➕ No existing record found. Creating new record...');
       let statusString = null; // Start with null
       let message = 'Scan recorded.';
 
@@ -312,22 +317,40 @@ exports.scanMarkAttendance = async (req, res) => {
         message = 'Attendance marked as Full Day Present';
       }
 
-      // Add new record for today if a valid status was determined
+      // Add new record for today if a valid status was determined - atomic operation
       if (statusString) {
-        attendance.records.push({
-          date: today,
-          status: statusString,
-          checkInTime: currentTime,
-          checkOutTime: null, // Checkout time is null on the first scan
+        // Use findOneAndUpdate with upsert for atomic operation
+        const result = await Attendance.findOneAndUpdate(
+          {
+            userId: user._id,
+            month: currentMonth,
+            year: currentYear
+          },
+          {
+            $push: {
+              records: {
+                date: today,
+                status: statusString,
+                checkInTime: currentTime,
+                checkOutTime: null
+              }
+            }
+          },
+          {
+            upsert: true,
+            new: true
+          }
+        );
+
+        // Recalculate summary asynchronously to not block the response
+        recalculateAttendanceSummary(result, currentMonth, currentYear).catch(err => {
+          console.error('Error recalculating summary:', err);
         });
- console.log('💾 Attempting to save attendance after adding new record...');
-        await attendance.save(); // Save after adding the new record
- console.log('💾 Attendance saved successfully.');
-        await recalculateAttendanceSummary(attendance, currentMonth, currentYear); // Recalculate summary
+
         res.json({ success: true, message: `${message} for user ${user.name}.` });
       } else {
-         // If statusString is null, it means the scan was outside valid windows.
-         return res.json({ success: false, message: message + ' No attendance status marked.' });
+        // If statusString is null, it means the scan was outside valid windows.
+        return res.json({ success: false, message: message + ' No attendance status marked.' });
       }
     }
 

@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // Base URL for your backend
 // For React Native, use your computer's IP address instead of localhost
 const BASE_URL = __DEV__ 
-  ? 'https://5000-firebase-mobileappgit-1754453892538.cluster-m7dwy2bmizezqukxkuxd55k5ka.cloudworkstations.dev/api'  // Development backend URL
+  ? 'http://localhost:5000/api'  // Development backend URL
   : 'https://mobile-app-5diq.onrender.com/api'; // Production backend URL
 
 class ApiService {
@@ -320,10 +320,10 @@ class ApiService {
     });
   }
 
-  async scanMarkAttendance(userId, attendanceType) {
-    return await this.makeRequest('/attendance/scan-mark', {
+  async scanMarkAttendance(barcode) {
+    return await this.makeRequest('/scanner/scan', {
       method: 'POST',
-      body: JSON.stringify({ userId, attendanceType }),
+      body: JSON.stringify({ barcode }),
     });
   }
 

@@ -27,8 +27,8 @@ router.get('/stats', getAttendanceStats);
 // POST /api/attendance/mark - Mark attendance (for staff/admin)
 router.post('/mark', markAttendance);
 
-// POST /api/attendance/scan-mark - Mark attendance via scanned ID
-router.post('/scan-mark', scanMarkAttendance);
+// POST /api/attendance/scan - Mark attendance via scanned ID
+router.post('/scan', scanMarkAttendance);
 
 // Day Management Routes (for management users)
 // GET /api/attendance/marked-days - Get marked days for calendar display

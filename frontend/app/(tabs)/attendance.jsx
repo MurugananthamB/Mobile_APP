@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Settings, UserCheck, Users } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
+import { isManagement } from '../../utils/roleUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 import ApiService from '../../services/api';
 
@@ -23,7 +23,6 @@ export default function AttendanceScreen() {
     absentDays: 0,
     percentage: 0,
   });
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // New state for selected date
   const [isNavigatingToScan, setIsNavigatingToScan] = useState(false); // State for scan navigation loading
 
   // Check user role on component mount
@@ -31,7 +30,7 @@ export default function AttendanceScreen() {
     checkUserRole();
   }, []);
 
-  // Load data when the component mounts and when the month changes or modal is closed (after setting day type)
+  // Load data when the component mounts and when the month changes
   useEffect(() => {
     loadMarkedDays();
     loadAttendanceStats();
@@ -138,6 +137,7 @@ export default function AttendanceScreen() {
       if (userData && userData.role) {
         setUserRole(userData.role);
         setIsManagement(userData.role === 'management');
+        console.log('User Role:', userData.role, 'Is Management:', userData.role === 'management');
       }
     } catch (error) {
       console.error('Error checking user role:', error);
@@ -152,7 +152,6 @@ export default function AttendanceScreen() {
       return;
     }
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setSelectedCalendarDate(dateStr);
     setShowDayTypeModal(true);
   };
 
@@ -160,7 +159,7 @@ export default function AttendanceScreen() {
     try {
       const dateStr = selectedCalendarDate;
       
-      const dayData = {
+      const dayData = { // Ensure this matches backend expected format
         date: dateStr,
         dayType: dayType,
         holidayType: 'both',
@@ -378,23 +377,7 @@ export default function AttendanceScreen() {
         {isManagement && (
           <>
             <TouchableOpacity
-              style={[styles.scanAttendanceButton, { opacity: isNavigatingToScan ? 0.7 : 1 }]}
-              onPress={() => {
-                // Provide immediate visual feedback and instant navigation
-                setIsNavigatingToScan(true);
-                router.push('/scanAttendance');
-              }}
-              activeOpacity={0.6}
-              pressRetentionOffset={20}
-              disabled={isNavigatingToScan}
-            >
-              <UserCheck size={20} color="#ffffff" />
-              <Text style={styles.scanAttendanceButtonText}>
-                {isNavigatingToScan ? 'Loading...' : 'Scan Attendance'}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
+              // style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]} // Removed scanAttendanceButton style
               style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]}
               onPress={() => router.push('/management-attendance')}
               activeOpacity={0.7}
@@ -404,7 +387,6 @@ export default function AttendanceScreen() {
             </TouchableOpacity>
           </>
         )}
-
 
         {/* Calendar Navigation */}
         <View style={styles.calendarHeader}>
@@ -439,8 +421,8 @@ export default function AttendanceScreen() {
               
                              // Check for individual attendance first
                const individualRecord = Array.isArray(individualAttendance) ? individualAttendance.find(record => {
-                 console.log('🔍 Checking record:', record, 'for date:', dateStr);
-                 
+                 // console.log('🔍 Checking record:', record, 'for date:', dateStr);
+
                  // Convert calendar date string to Date object for comparison
                  const calendarDate = new Date(dateStr);
                  
@@ -457,7 +439,7 @@ export default function AttendanceScreen() {
                  
                  if (recordDate) {
                    // Compare dates using toDateString() to ignore time
-                   const isMatch = recordDate.toDateString() === calendarDate.toDateString();
+                   const isMatch = recordDate.toDateString() === calendarDate.toDateString(); // compare date parts only
                    console.log('📅 Date comparison:', recordDate.toDateString(), '===', calendarDate.toDateString(), 'Match:', isMatch);
                    return isMatch;
                  }
@@ -467,7 +449,7 @@ export default function AttendanceScreen() {
                
 
                
-               console.log('📊 Found individual record for', dateStr, ':', individualRecord);
+               // console.log('📊 Found individual record for', dateStr, ':', individualRecord);
                
                let displayStatus = null;
                let isIndividualAttendance = false;
@@ -475,11 +457,11 @@ export default function AttendanceScreen() {
                if (individualRecord && individualRecord.status) {
                  displayStatus = individualRecord.status.toLowerCase();
                  isIndividualAttendance = true;
-                 console.log('✅ Using individual attendance:', displayStatus);
+                 // console.log('✅ Using individual attendance:', displayStatus);
                } else {
                  // If no individual attendance, check for management-defined marked day
                  displayStatus = markedDays[dateStr];
-                 isIndividualAttendance = false;
+                 isIndividualAttendance = false; // It's a management mark, not individual attendance
                  console.log('📋 Using management day type:', displayStatus);
                }
               
@@ -511,7 +493,7 @@ export default function AttendanceScreen() {
                        {displayStatus === 'working' && (
                          <Text style={[styles.dayStatusText, { color: '#6b7280' }]}>Working</Text>
                        )}
-                     </View>
+                     </View> // Fixed closing tag
                    )}
                 </TouchableOpacity>
               );

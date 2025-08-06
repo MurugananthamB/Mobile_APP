@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, Clock, MapPin, Users, Star, Plus, X, Search } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Calendar, Clock, MapPin, Users, Star, Plus, X, Search, ChevronLeft, ChevronDown } from 'lucide-react-native';
 import ApiService from '../services/api';
 
 export default function EventsScreen() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
   const [userData, setUserData] = useState(null);
   
   // Add event modal states

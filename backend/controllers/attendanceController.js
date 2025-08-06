@@ -1,4 +1,4 @@
-// controllers/attendanceController.js
+// backend/controllers/attendanceController.js
 const { Attendance, DayManagement } = require('../models/attendance');
 const User = require('../models/user'); // Import User model
 
@@ -222,6 +222,9 @@ exports.markAttendance = async (req, res) => {
 // Mark attendance using scanned ID
 exports.scanMarkAttendance = async (req, res) => {
   try {
+    console.log('Hit scanMarkAttendance endpoint');
+ console.log('🚗 Received scan request.');
+ console.log('📖 Request Body:', req.body);
     const { barcode } = req.body; // Extract barcode from request body
 
     if (!barcode) {
@@ -231,6 +234,7 @@ exports.scanMarkAttendance = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid barcode format. Must start with MAPH.' });
     }
     const userId = barcode.substring(4);
+ console.log('🆔 Extracted userId:', userId);
     if (!userId) {
        return res.status(400).json({ success: false, message: 'Invalid barcode format. User ID missing.' });
     }
@@ -239,6 +243,7 @@ exports.scanMarkAttendance = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+ console.log('✅ User found:', user.name);
 
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
@@ -262,6 +267,7 @@ exports.scanMarkAttendance = async (req, res) => {
       });
     }
 
+ console.log('🗓️ Checking for existing record for today:', today.toDateString());
     // Check if a record for today already exists
     const existingRecordIndex = attendance.records.findIndex(record =>
       record.date.toDateString() === today.toDateString()
@@ -270,7 +276,9 @@ exports.scanMarkAttendance = async (req, res) => {
     if (existingRecordIndex > -1) {
       // Update existing record for subsequent scans (check-out)
       // Only update checkout time, do not change status set by first scan
+ console.log('➡️ Existing record found at index:', existingRecordIndex);
       attendance.records[existingRecordIndex].checkOutTime = currentTime;
+ console.log('💾 Attempting to save attendance after updating checkout time...');
        await attendance.save(); // Save after updating the existing record
        // No need to recalculate summary on checkout time update unless your logic requires it
        // await recalculateAttendanceSummary(attendance, currentMonth, currentYear); // Optional: Uncomment if checkout affects summary
@@ -278,6 +286,7 @@ exports.scanMarkAttendance = async (req, res) => {
 
     } else {
       // Determine status based on scan time for the first scan of the day
+ console.log('➕ No existing record found. Creating new record...');
       let statusString = null; // Start with null
       let message = 'Scan recorded.';
 
@@ -311,7 +320,9 @@ exports.scanMarkAttendance = async (req, res) => {
           checkInTime: currentTime,
           checkOutTime: null, // Checkout time is null on the first scan
         });
+ console.log('💾 Attempting to save attendance after adding new record...');
         await attendance.save(); // Save after adding the new record
+ console.log('💾 Attendance saved successfully.');
         await recalculateAttendanceSummary(attendance, currentMonth, currentYear); // Recalculate summary
         res.json({ success: true, message: `${message} for user ${user.name}.` });
       } else {

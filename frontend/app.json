@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "School Mobile App",
-    "slug": "school-mobile-app",
+    "name": "GBPS",
+    "slug": "GBPS",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/gbps.jpg",
+    "icon": "./assets/images/playstore-icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "ios": {

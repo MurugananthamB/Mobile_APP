@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, Clock, MapPin, Users, Star, Plus, X, Search, ChevronDown } from 'lucide-react-native';
+import { Calendar, Clock, MapPin, Users, Star, Plus, X, Search } from 'lucide-react-native';
 import ApiService from '../services/api';
 
 export default function EventsScreen() {

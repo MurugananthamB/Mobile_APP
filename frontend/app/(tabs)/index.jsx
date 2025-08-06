@@ -5,6 +5,7 @@ import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOp
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import ApiService from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
   const router = useRouter();

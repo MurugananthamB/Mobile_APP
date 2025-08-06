@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/api';
 
 export default function LoginScreen() {
@@ -29,6 +30,33 @@ export default function LoginScreen() {
       const response = await ApiService.login(studentId, password);
       
       console.log('✅ Login successful:', response);
+
+      // --- Start Data Pre-fetching and Local Storage ---
+      try {
+        // Fetch data in parallel
+        const [profileResponse, unreadCountResponse, attendanceStatsResponse] = await Promise.all([
+          ApiService.getProfile(),
+          ApiService.getUnreadNotificationCount(),
+          ApiService.getAttendanceStats(),
+        ]);
+
+        // Store fetched data
+        if (profileResponse.success) {
+          await AsyncStorage.setItem('@user_profile_data', JSON.stringify(profileResponse.user));
+          console.log('✅ Stored user profile data');
+        }
+        if (unreadCountResponse.success) {
+          await AsyncStorage.setItem('@unread_notification_count', JSON.stringify(unreadCountResponse.data.count));
+          console.log('✅ Stored unread notification count');
+        }
+        if (attendanceStatsResponse.success) {
+           await AsyncStorage.setItem('@attendance_stats', JSON.stringify(attendanceStatsResponse.data));
+           console.log('✅ Stored attendance stats');
+        }
+      } catch (prefetchError) {
+        console.error('⚠️ Error during data pre-fetching or storage:', prefetchError);
+        // Continue to home page even if pre-fetching fails
+      }
       // Redirect to home page immediately on successful login
       router.replace('/(tabs)');
       

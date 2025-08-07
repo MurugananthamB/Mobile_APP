@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
@@ -13,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Bell, ArrowLeft, Check, ChevronRight } from 'lucide-react-native';
 import ApiService from '../services/api';
+import { tw } from '../utils/tailwind';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -100,37 +100,31 @@ export default function NotificationsScreen() {
     if (!notification.isRead) {
       markAsRead(notification._id);
     }
-
-    // Navigate to the related page based on notification type
-    switch (notification.type) {
-      case 'event':
-        router.push('/events');
-        break;
-      case 'notice':
-        router.push('/(tabs)/notices');
-        break;
-      case 'homework':
-        router.push('/homework');
-        break;
-      case 'schedule':
-        router.push('/schedule');
-        break;
-      default:
-        // For general notifications, do nothing
-        break;
+    
+    // Handle navigation based on notification type
+    if (notification.type === 'attendance') {
+      router.push('/attendance');
+    } else if (notification.type === 'homework') {
+      router.push('/homework');
+    } else if (notification.type === 'results') {
+      router.push('/results');
+    } else if (notification.type === 'events') {
+      router.push('/events');
     }
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'event':
-        return '🎉';
-      case 'notice':
-        return '📢';
+      case 'attendance':
+        return '📊';
       case 'homework':
         return '📚';
-      case 'schedule':
-        return '📅';
+      case 'results':
+        return '📈';
+      case 'events':
+        return '🎉';
+      case 'general':
+        return '📢';
       default:
         return '🔔';
     }
@@ -138,92 +132,77 @@ export default function NotificationsScreen() {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'urgent':
-        return '#dc2626';
       case 'high':
-        return '#ea580c';
+        return 'bg-red-100 border-red-300';
       case 'medium':
-        return '#0891b2';
+        return 'bg-yellow-100 border-yellow-300';
       case 'low':
-        return '#059669';
+        return 'bg-green-100 border-green-300';
       default:
-        return '#0891b2';
+        return 'bg-gray-100 border-gray-300';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+      return 'Today';
+    } else if (diffDays === 2) {
+      return 'Yesterday';
+    } else if (diffDays <= 7) {
+      return `${diffDays - 1} days ago`;
+    } else {
+      return date.toLocaleDateString();
     }
   };
 
   const filteredNotifications = notifications.filter(notification => {
     if (filter === 'unread') return !notification.isRead;
     if (filter === 'read') return notification.isRead;
-    return true; // 'all'
+    return true;
   });
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)} hours ago`;
-    } else if (diffInHours < 48) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
+      <SafeAreaView style={tw("flex-1 bg-gray-50")}>
+        <View style={tw("flex-1 justify-center items-center")}>
+          <ActivityIndicator size="large" color="#1e40af" />
+          <Text style={tw("mt-2 text-gray-500")}>Loading notifications...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={tw("flex-1 bg-gray-50")}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => {
-            // Navigate to home page since notifications is accessed from home
-            router.push('/(tabs)');
-          }} 
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#333" />
+      <View style={tw("flex-row items-center justify-between p-4 bg-white border-b border-gray-200")}>
+        <TouchableOpacity onPress={() => router.back()} style={tw("p-2")}>
+          <ArrowLeft size={24} color="#1f2937" />
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Bell size={24} color="#667eea" />
-          <Text style={styles.headerTitle}>Notifications</Text>
-          {unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{unreadCount}</Text>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
-          <Text style={styles.markAllText}>Mark All Read</Text>
+        <Text style={tw("text-xl font-bold text-gray-900")}>Notifications</Text>
+        <TouchableOpacity onPress={markAllAsRead} style={tw("p-2")}>
+          <Check size={24} color="#1e40af" />
         </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
+      <View style={tw("flex-row bg-white border-b border-gray-200")}>
         {[
           { key: 'all', label: 'All' },
-          { key: 'unread', label: 'Unread' },
+          { key: 'unread', label: `Unread (${unreadCount})` },
           { key: 'read', label: 'Read' }
         ].map((tab) => (
           <TouchableOpacity
             key={tab.key}
-            style={[styles.filterTab, filter === tab.key && styles.activeFilterTab]}
             onPress={() => setFilter(tab.key)}
+            style={tw(`flex-1 py-3 px-4 ${filter === tab.key ? 'border-b-2 border-blue-500' : ''}`)}
           >
-            <Text style={[styles.filterText, filter === tab.key && styles.activeFilterText]}>
+            <Text style={tw(`text-center font-medium ${filter === tab.key ? 'text-blue-600' : 'text-gray-500'}`)}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -232,297 +211,55 @@ export default function NotificationsScreen() {
 
       {/* Notifications List */}
       <ScrollView
-        style={styles.scrollView}
+        style={tw("flex-1")}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        showsVerticalScrollIndicator={false}
       >
         {filteredNotifications.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Bell size={48} color="#ccc" />
-            <Text style={styles.emptyTitle}>No notifications</Text>
-            <Text style={styles.emptySubtitle}>
-              {filter === 'all' 
-                ? 'You\'re all caught up!' 
-                : filter === 'unread' 
-                  ? 'No unread notifications'
-                  : 'No read notifications'
-              }
-            </Text>
+          <View style={tw("flex-1 justify-center items-center py-20")}>
+            <Bell size={48} color="#9ca3af" />
+            <Text style={tw("text-lg font-medium text-gray-500 mt-4")}>No notifications</Text>
+            <Text style={tw("text-sm text-gray-400 mt-2")}>You're all caught up!</Text>
           </View>
         ) : (
           filteredNotifications.map((notification) => (
             <TouchableOpacity
               key={notification._id}
-              style={[
-                styles.notificationCard,
-                !notification.isRead && styles.unreadCard,
-                notification.type !== 'general' && styles.clickableCard
-              ]}
               onPress={() => handleNotificationPress(notification)}
-              activeOpacity={0.7}
+              style={tw(`p-4 border-b border-gray-100 ${!notification.isRead ? 'bg-blue-50' : 'bg-white'}`)}
             >
-              <View style={styles.notificationHeader}>
-                <View style={styles.notificationIcon}>
-                  <Text style={styles.iconText}>
-                    {getNotificationIcon(notification.type)}
-                  </Text>
+              <View style={tw("flex-row items-start")}>
+                <View style={tw(`w-12 h-12 rounded-full items-center justify-center mr-3 ${getPriorityColor(notification.priority)}`)}>
+                  <Text style={tw("text-xl")}>{getNotificationIcon(notification.type)}</Text>
                 </View>
-                <View style={styles.notificationContent}>
-                  <Text style={styles.notificationTitle}>
-                    {notification.title}
-                  </Text>
-                  <Text style={styles.notificationMessage}>
+                
+                <View style={tw("flex-1")}>
+                  <View style={tw("flex-row items-center justify-between mb-1")}>
+                    <Text style={tw(`font-semibold text-base ${!notification.isRead ? 'text-gray-900' : 'text-gray-600'}`)}>
+                      {notification.title}
+                    </Text>
+                    {!notification.isRead && (
+                      <View style={tw("w-2 h-2 bg-blue-500 rounded-full")} />
+                    )}
+                  </View>
+                  
+                  <Text style={tw("text-sm text-gray-600 mb-2")} numberOfLines={2}>
                     {notification.message}
                   </Text>
-                  <View style={styles.notificationMeta}>
-                    <Text style={styles.notificationTime}>
+                  
+                  <View style={tw("flex-row items-center justify-between")}>
+                    <Text style={tw("text-xs text-gray-400")}>
                       {formatDate(notification.createdAt)}
                     </Text>
-                    <View style={styles.metaRight}>
-                      <View style={[
-                        styles.priorityBadge,
-                        { backgroundColor: getPriorityColor(notification.priority) }
-                      ]}>
-                        <Text style={styles.priorityText}>
-                          {notification.priority}
-                        </Text>
-                      </View>
-                      {notification.type !== 'general' && (
-                        <ChevronRight size={16} color="#94a3b8" />
-                      )}
-                    </View>
+                    <ChevronRight size={16} color="#9ca3af" />
                   </View>
                 </View>
               </View>
-              
-              {!notification.isRead && (
-                <View style={styles.notificationActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => markAsRead(notification._id)}
-                  >
-                    <Check size={16} color="#059669" />
-                    <Text style={styles.actionText}>Mark Read</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </TouchableOpacity>
           ))
         )}
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#64748b',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginLeft: 8,
-  },
-  unreadBadge: {
-    backgroundColor: '#dc2626',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  unreadText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  markAllButton: {
-    padding: 8,
-  },
-  markAllText: {
-    color: '#667eea',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  activeFilterTab: {
-    backgroundColor: '#667eea',
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#64748b',
-  },
-  activeFilterText: {
-    color: '#ffffff',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#64748b',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  notificationCard: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 20,
-    marginVertical: 8,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  unreadCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#667eea',
-    backgroundColor: '#f8fafc',
-  },
-  clickableCard: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  notificationHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  iconText: {
-    fontSize: 20,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  notificationMessage: {
-    fontSize: 14,
-    color: '#64748b',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  notificationMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  metaRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  priorityText: {
-    fontSize: 10,
-    color: '#ffffff',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  notificationActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f1f5f9',
-  },
-  actionText: {
-    fontSize: 12,
-    color: '#059669',
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-}); 
+} 

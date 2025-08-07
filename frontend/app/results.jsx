@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { FileText, TrendingUp, Award, BarChart3, ChevronDown } from 'lucide-react-native';
+import { tw } from '../utils/tailwind';
 
 export default function ResultsScreen() {
   const [selectedTerm, setSelectedTerm] = useState('midterm');
@@ -75,179 +76,125 @@ export default function ResultsScreen() {
   const currentTermData = resultsData.terms[selectedTerm];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={tw("flex-1 bg-gray-50")}>
+      <ScrollView style={tw("flex-1")} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
+        <View style={tw("bg-white p-4 border-b border-gray-200")}>
+          <View style={tw("flex-row items-center")}>
             <FileText size={24} color="#1e40af" />
-            <Text style={styles.headerTitle}>Results</Text>
+            <Text style={tw("text-xl font-bold text-gray-900 ml-2")}>Results</Text>
           </View>
         </View>
 
         {/* Overall Performance */}
-        <View style={styles.overallContainer}>
-          <View style={styles.overallCard}>
-            <View style={styles.overallHeader}>
-              <Text style={styles.overallTitle}>Overall Performance</Text>
+        <View style={tw("p-4")}>
+          <View style={tw("bg-white rounded-xl p-6 shadow-sm")}>
+            <View style={tw("flex-row items-center justify-between mb-4")}>
+              <Text style={tw("text-lg font-bold text-gray-900")}>Overall Performance</Text>
               <Award size={20} color="#f59e0b" />
             </View>
-            <View style={styles.overallStats}>
-              <View style={styles.overallStat}>
-                <Text style={styles.overallValue}>{resultsData.currentCGPA}</Text>
-                <Text style={styles.overallLabel}>CGPA</Text>
+            <View style={tw("flex-row justify-between")}>
+              <View style={tw("items-center")}>
+                <Text style={tw("text-3xl font-bold text-blue-600")}>{resultsData.currentCGPA}</Text>
+                <Text style={tw("text-sm text-gray-500")}>CGPA</Text>
               </View>
-              <View style={styles.overallStat}>
-                <Text style={styles.overallValue}>{resultsData.rank}</Text>
-                <Text style={styles.overallLabel}>Class Rank</Text>
+              <View style={tw("items-center")}>
+                <Text style={tw("text-3xl font-bold text-green-600")}>{resultsData.totalSubjects}</Text>
+                <Text style={tw("text-sm text-gray-500")}>Subjects</Text>
               </View>
-              <View style={styles.overallStat}>
-                <Text style={styles.overallValue}>{resultsData.totalSubjects}</Text>
-                <Text style={styles.overallLabel}>Subjects</Text>
+              <View style={tw("items-center")}>
+                <Text style={tw("text-3xl font-bold text-purple-600")}>{resultsData.rank}</Text>
+                <Text style={tw("text-sm text-gray-500")}>Rank</Text>
+              </View>
+              <View style={tw("items-center")}>
+                <Text style={tw("text-3xl font-bold text-orange-600")}>{resultsData.totalStudents}</Text>
+                <Text style={tw("text-sm text-gray-500")}>Total</Text>
               </View>
             </View>
           </View>
         </View>
 
         {/* Term Selection */}
-        <View style={styles.termSelector}>
-          <Text style={styles.termSelectorTitle}>Select Term</Text>
-          <View style={styles.termButtons}>
-            <TouchableOpacity
-              style={[
-                styles.termButton,
-                selectedTerm === 'midterm' && styles.termButtonActive
-              ]}
-              onPress={() => setSelectedTerm('midterm')}
-            >
-              <Text style={[
-                styles.termButtonText,
-                selectedTerm === 'midterm' && styles.termButtonTextActive
-              ]}>
-                Mid-Term
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.termButton,
-                selectedTerm === 'annual' && styles.termButtonActive
-              ]}
-              onPress={() => setSelectedTerm('annual')}
-            >
-              <Text style={[
-                styles.termButtonText,
-                selectedTerm === 'annual' && styles.termButtonTextActive
-              ]}>
-                Annual
-              </Text>
-            </TouchableOpacity>
+        <View style={tw("px-4 mb-4")}>
+          <View style={tw("bg-white rounded-xl p-4 shadow-sm")}>
+            <Text style={tw("text-lg font-bold text-gray-900 mb-3")}>Select Term</Text>
+            <View style={tw("flex-row space-x-2")}>
+              {Object.keys(resultsData.terms).map((term) => (
+                <TouchableOpacity
+                  key={term}
+                  onPress={() => setSelectedTerm(term)}
+                  style={tw(`flex-1 py-3 px-4 rounded-lg ${selectedTerm === term ? 'bg-blue-500' : 'bg-gray-100'}`)}
+                >
+                  <Text style={tw(`text-center font-medium ${selectedTerm === term ? 'text-white' : 'text-gray-700'}`)}>
+                    {term.charAt(0).toUpperCase() + term.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
-        {/* Term Results Summary */}
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              <Text style={styles.summaryTitle}>{currentTermData.name}</Text>
-              <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(currentTermData.grade) }]}>
-                <Text style={styles.gradeText}>{currentTermData.grade}</Text>
+        {/* Term Results */}
+        <View style={tw("px-4 mb-4")}>
+          <View style={tw("bg-white rounded-xl p-6 shadow-sm")}>
+            <View style={tw("flex-row items-center justify-between mb-4")}>
+              <Text style={tw("text-lg font-bold text-gray-900")}>{currentTermData.name}</Text>
+              <View style={tw("flex-row items-center")}>
+                <BarChart3 size={20} color="#3b82f6" />
+                <Text style={tw("text-sm text-gray-500 ml-1")}>Performance</Text>
               </View>
             </View>
-            <View style={styles.summaryStats}>
-              <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatValue}>{currentTermData.obtainedMarks}</Text>
-                <Text style={styles.summaryStatLabel}>Obtained</Text>
+            
+            {/* Term Summary */}
+            <View style={tw("bg-blue-50 rounded-lg p-4 mb-6")}>
+              <View style={tw("flex-row justify-between items-center mb-2")}>
+                <Text style={tw("text-sm font-medium text-gray-600")}>Total Marks</Text>
+                <Text style={tw("text-sm font-medium text-gray-600")}>{currentTermData.obtainedMarks}/{currentTermData.totalMarks}</Text>
               </View>
-              <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatValue}>{currentTermData.totalMarks}</Text>
-                <Text style={styles.summaryStatLabel}>Total</Text>
-              </View>
-              <View style={styles.summaryStatItem}>
-                <Text style={[styles.summaryStatValue, { color: getPercentageColor(currentTermData.percentage) }]}>
+              <View style={tw("flex-row justify-between items-center mb-2")}>
+                <Text style={tw("text-sm font-medium text-gray-600")}>Percentage</Text>
+                <Text style={tw("text-sm font-bold")} style={{ color: getPercentageColor(currentTermData.percentage) }}>
                   {currentTermData.percentage}%
                 </Text>
-                <Text style={styles.summaryStatLabel}>Percentage</Text>
               </View>
-            
-
+              <View style={tw("flex-row justify-between items-center")}>
+                <Text style={tw("text-sm font-medium text-gray-600")}>Grade</Text>
+                <Text style={tw("text-sm font-bold")} style={{ color: getGradeColor(currentTermData.grade) }}>
+                  {currentTermData.grade}
+                </Text>
+              </View>
             </View>
-          </View>
-        </View>
 
-        {/* Subject-wise Results */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subject-wise Results</Text>
-          <View style={styles.subjectsContainer}>
+            {/* Subject-wise Results */}
+            <Text style={tw("text-lg font-bold text-gray-900 mb-4")}>Subject-wise Results</Text>
             {currentTermData.subjects.map((subject, index) => (
-              <View key={index} style={styles.subjectCard}>
-                <View style={styles.subjectHeader}>
-                  <Text style={styles.subjectName}>{subject.name}</Text>
-                  <View style={[styles.subjectGrade, { backgroundColor: getGradeColor(subject.grade) }]}>
-                    <Text style={styles.subjectGradeText}>{subject.grade}</Text>
-                  </View>
-                </View>
-                <View style={styles.subjectDetails}>
-                  <View style={styles.subjectMarks}>
-                    <Text style={styles.subjectObtained}>{subject.obtainedMarks}</Text>
-                    <Text style={styles.subjectMax}>/{subject.maxMarks}</Text>
-                  </View>
-                  <Text style={styles.subjectPercentage}>
-                    {calculatePercentage(subject.obtainedMarks, subject.maxMarks)}%
+              <View key={index} style={tw("border-b border-gray-100 py-3 last:border-b-0")}>
+                <View style={tw("flex-row justify-between items-center mb-2")}>
+                  <Text style={tw("text-base font-medium text-gray-900")}>{subject.name}</Text>
+                  <Text style={tw("text-sm font-bold")} style={{ color: getGradeColor(subject.grade) }}>
+                    {subject.grade}
                   </Text>
                 </View>
-                <Text style={styles.subjectTeacher}>Teacher: {subject.teacher}</Text>
-                
-                {/* Progress Bar */}
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBar}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: `${(subject.obtainedMarks / subject.maxMarks) * 100}%`,
-                          backgroundColor: getGradeColor(subject.grade)
-                        }
-                      ]}
-                    />
-                  </View>
+                <View style={tw("flex-row justify-between items-center")}>
+                  <Text style={tw("text-sm text-gray-500")}>{subject.teacher}</Text>
+                  <Text style={tw("text-sm text-gray-600")}>
+                    {subject.obtainedMarks}/{subject.maxMarks} ({calculatePercentage(subject.obtainedMarks, subject.maxMarks)}%)
+                  </Text>
                 </View>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Performance Chart */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Performance Analysis</Text>
-          <View style={styles.chartCard}>
-            <View style={styles.chartHeader}>
-              <BarChart3 size={20} color="#1e40af" />
-              <Text style={styles.chartTitle}>Grade Distribution</Text>
+        {/* Performance Chart Placeholder */}
+        <View style={tw("px-4 mb-6")}>
+          <View style={tw("bg-white rounded-xl p-6 shadow-sm")}>
+            <View style={tw("flex-row items-center justify-between mb-4")}>
+              <Text style={tw("text-lg font-bold text-gray-900")}>Performance Trend</Text>
+              <TrendingUp size={20} color="#10b981" />
             </View>
-            <View style={styles.chartContent}>
-              {['A+', 'A', 'B+', 'B', 'C'].map((grade) => {
-                const count = currentTermData.subjects.filter(s => s.grade === grade).length;
-                const percentage = (count / currentTermData.subjects.length) * 100;
-                return (
-                  <View key={grade} style={styles.chartRow}>
-                    <Text style={styles.chartLabel}>{grade}</Text>
-                    <View style={styles.chartBarContainer}>
-                      <View
-                        style={[
-                          styles.chartBar,
-                          {
-                            width: `${percentage}%`,
-                            backgroundColor: getGradeColor(grade)
-                          }
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.chartCount}>{count}</Text>
-                  </View>
-                );
-              })}
-            
-
+            <View style={tw("h-32 bg-gray-100 rounded-lg items-center justify-center")}>
+              <Text style={tw("text-gray-500")}>Chart visualization coming soon</Text>
             </View>
           </View>
         </View>
@@ -255,296 +202,3 @@ export default function ResultsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginLeft: 10,
-  },
-  overallContainer: {
-    margin: 20,
-  },
-  overallCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  overallHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  overallTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  overallStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  overallStat: {
-    alignItems: 'center',
-  },
-  overallValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1e40af',
-    marginBottom: 5,
-  },
-  overallLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  termSelector: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  termSelectorTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 10,
-  },
-  termButtons: {
-    flexDirection: 'row',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    padding: 4,
-  },
-  termButton: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  termButtonActive: {
-    backgroundColor: '#1e40af',
-  },
-  termButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
-  },
-  termButtonTextActive: {
-    color: '#ffffff',
-  },
-  summaryContainer: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  summaryCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  gradeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  gradeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  summaryStatItem: {
-    alignItems: 'center',
-  },
-  summaryStatValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 5,
-  },
-  summaryStatLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  section: {
-    marginHorizontal: 20,
-    marginBottom: 25,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 15,
-  },
-  subjectsContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  subjectCard: {
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  subjectHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  subjectName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  subjectGrade: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  subjectGradeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  subjectDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  subjectMarks: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  subjectObtained: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
-  },
-  subjectMax: {
-    fontSize: 16,
-    color: '#6b7280',
-  },
-  subjectPercentage: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e40af',
-  },
-  subjectTeacher: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 10,
-  },
-  progressContainer: {
-    marginTop: 5,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  chartCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginLeft: 8,
-  },
-  chartContent: {
-    flex: 1,
-  },
-  chartRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  chartLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    width: 30,
-  },
-  chartBarContainer: {
-    flex: 1,
-    height: 20,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 10,
-    marginHorizontal: 10,
-    overflow: 'hidden',
-  },
-  chartBar: {
-    height: '100%',
-    borderRadius: 10,
-  },
-  chartCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    width: 20,
-    textAlign: 'center',
-  },
-});

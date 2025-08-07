@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import ApiService from '../services/api';
+import { tw } from '../utils/tailwind';
 
 export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
@@ -27,9 +28,9 @@ export default function Index() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+      <View style={tw("flex-1 justify-center items-center bg-gray-50")}>
         <ActivityIndicator size="large" color="#1e40af" />
-        <Text style={{ marginTop: 10, color: '#6b7280' }}>Loading...</Text>
+        <Text style={tw("mt-2 text-gray-500")}>Loading...</Text>
       </View>
     );
   }

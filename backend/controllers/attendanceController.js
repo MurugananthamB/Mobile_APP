@@ -252,8 +252,6 @@ exports.scanMarkAttendance = async (req, res) => {
     const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
     // Use findOneAndUpdate for atomic operations to prevent race conditions
-    const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
     // Check if a record for today already exists using atomic operation
     const existingRecord = await Attendance.findOne({

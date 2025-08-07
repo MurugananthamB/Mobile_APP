@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Calendar, DollarSign, Clock, Bell, FileText, ChevronRight, BookOpen, Bed, CalendarDays, Bookmark } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ApiService from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -105,18 +106,8 @@ export default function HomeScreen() {
     }
   };
 
-
-
   const handleNotificationPress = () => {
     router.push('/notifications');
-  };
-
-  // Manual refresh function that can be called from other screens
-  const refreshProfileData = () => {
-    console.log('🏠 Home - Manual profile refresh triggered');
-    fetchUserProfile();
-    fetchUnreadCount();
-    fetchAttendanceStats();
   };
 
   // Get user display info with proper image URL construction, memoized for performance
@@ -178,9 +169,9 @@ export default function HomeScreen() {
   // Show loading state while fetching user data
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 16, color: '#6b7280' }}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -191,12 +182,11 @@ export default function HomeScreen() {
     { title: 'Attendance', icon: Calendar, route: 'attendance', color: '#0891b2' },
     { title: 'Fees', icon: DollarSign, route: 'fees', color: '#ea580c' },
     { title: 'Timetable', icon: Clock, route: 'timetable', color: '#8e6e31' },
-    { title: 'Circluar', icon: Bell, route: 'notices', color: '#dc2626' },
+    { title: 'Circular', icon: Bell, route: 'notices', color: '#dc2626' },
     { title: 'Results', icon: FileText, route: 'results', color: '#059669' },
     { title: 'Homework', icon: BookOpen, route: 'homework', color: '#7572ff' },
     { title: 'Events', icon: CalendarDays, route: 'events', color: '#ffbb39' },
     { title: 'Hostel', icon: Bed, route: 'hostel', color: '#a8da61' },
-    
   ];
 
   const recentActivities = [
@@ -205,38 +195,80 @@ export default function HomeScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient
           colors={['#667eea', '#764ba2']}
-          style={styles.header}
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 20,
+            borderBottomLeftRadius: 20,
+            borderBottomRightRadius: 20,
+          }}
         >
-          <View style={styles.headerContent}>
-            <View style={styles.userInfo}>
-                <View style={styles.profileContainer}>
-                  <Image
-                    key={`profile-${userInfo?.profileImage || 'default'}-${imageRefreshKey}`}
-                    source={displayInfo.profileImageUrl ? { uri: displayInfo.profileImageUrl } : require('../../assets/images/icon.png')}
-                    style={styles.profileImage}
-                    onError={(error) => {
-                      console.log('🏠 Home - Profile image load error:', error);
-                    }}
-                  />
-                  <View style={styles.onlineIndicator} />
-                </View>
-              <View style={styles.userDetails}>
-                <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.userName}>{displayInfo.name}</Text>
-                <Text style={styles.subtitle}>{displayInfo.subtitle}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ position: 'relative', marginRight: 15 }}>
+                <Image
+                  key={`profile-${userInfo?.profileImage || 'default'}-${imageRefreshKey}`}
+                  source={displayInfo.profileImageUrl ? { uri: displayInfo.profileImageUrl } : require('../../assets/images/icon.png')}
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 30,
+                    borderWidth: 3,
+                    borderColor: '#ffffff',
+                  }}
+                  onError={(error) => {
+                    console.log('🏠 Home - Profile image load error:', error);
+                  }}
+                />
+                <View style={{
+                  position: 'absolute',
+                  bottom: 2,
+                  right: 2,
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  backgroundColor: '#10b981',
+                  borderWidth: 2,
+                  borderColor: '#ffffff',
+                }} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#e2e8f0', fontSize: 14 }}>Welcome back,</Text>
+                <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '700', marginTop: 2 }}>{displayInfo.name}</Text>
+                <Text style={{ color: '#e2e8f0', fontSize: 12, marginTop: 2 }}>{displayInfo.subtitle}</Text>
               </View>
             </View>
-            <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity 
+                style={{
+                  position: 'relative',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }} 
+                onPress={handleNotificationPress}
+              >
                 <Bell size={24} color="#ffffff" />
                 {unreadCount > 0 && (
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>
+                  <View style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                    backgroundColor: '#ef4444',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: 'bold' }}>
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </Text>
                   </View>
@@ -246,61 +278,89 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-
-
         {/* Attendance Overview */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Attendance Overview</Text>
-            <Text style={styles.sectionSubtitle}>This month's performance</Text>
+        <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ marginBottom: 15 }}>
+            <Text style={{ fontSize: 20, fontWeight: '600', color: '#1f2937', marginBottom: 4 }}>Attendance Overview</Text>
+            <Text style={{ fontSize: 14, color: '#6b7280' }}>This month's performance</Text>
           </View>
-          <TouchableOpacity style={styles.attendanceCard} onPress={() => router.push('attendance')}>
+          <TouchableOpacity 
+            style={{
+              borderRadius: 20,
+              overflow: 'hidden',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8,
+            }} 
+            onPress={() => router.push('attendance')}
+          >
             <LinearGradient
               colors={['#10b981', '#059669']}
-              style={styles.attendanceGradient}
+              style={{ padding: 16 }}
             >
-              <View style={styles.attendanceHeader}>
-                <View style={styles.attendanceIcon}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
                   <Calendar size={18} color="#ffffff" />
                 </View>
-                <View style={styles.attendanceStats}>
+                <View style={{ alignItems: 'flex-end' }}>
                   {attendanceLoading ? (
-                    <Text style={styles.attendancePercentage}>...</Text>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#ffffff', marginBottom: 2 }}>...</Text>
                   ) : attendanceStats.totalDays > 0 ? (
-                    <Text style={styles.attendancePercentage}>{attendanceStats.percentage}%</Text>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#ffffff', marginBottom: 2 }}>{attendanceStats.percentage}%</Text>
                   ) : (
-                    <Text style={styles.attendancePercentage}>0%</Text>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#ffffff', marginBottom: 2 }}>0%</Text>
                   )}
-                  <Text style={styles.attendanceLabel}>Present</Text>
+                  <Text style={{ fontSize: 11, color: '#ffffff', opacity: 0.9 }}>Present</Text>
                 </View>
               </View>
-              <View style={styles.attendanceDetails}>
-                <View style={styles.attendanceRow}>
-                  <View style={styles.attendanceItem}>
-                    <Text style={styles.attendanceNumber}>
+              <View style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 2 }}>
                       {attendanceLoading ? '...' : attendanceStats.presentDays}
                     </Text>
-                    <Text style={styles.attendanceText}>Days Present</Text>
+                    <Text style={{ fontSize: 10, color: '#ffffff', opacity: 0.8, textAlign: 'center' }}>Days Present</Text>
                   </View>
-                  <View style={styles.attendanceItem}>
-                    <Text style={styles.attendanceNumber}>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 2 }}>
                       {attendanceLoading ? '...' : attendanceStats.absentDays}
                     </Text>
-                    <Text style={styles.attendanceText}>Days Absent</Text>
+                    <Text style={{ fontSize: 10, color: '#ffffff', opacity: 0.8, textAlign: 'center' }}>Days Absent</Text>
                   </View>
-                  <View style={styles.attendanceItem}>
-                    <Text style={styles.attendanceNumber}>
+                  <View style={{ alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 2 }}>
                       {attendanceLoading ? '...' : attendanceStats.totalDays}
                     </Text>
-                    <Text style={styles.attendanceText}>Total Days</Text>
+                    <Text style={{ fontSize: 10, color: '#ffffff', opacity: 0.8, textAlign: 'center' }}>Total Days</Text>
                   </View>
                 </View>
               </View>
-              <View style={styles.attendanceProgress}>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${attendanceStats.percentage || 0}%` }]} />
+              <View style={{ alignItems: 'center' }}>
+                <View style={{
+                  width: '100%',
+                  height: 6,
+                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  borderRadius: 3,
+                  marginBottom: 6,
+                  overflow: 'hidden',
+                }}>
+                  <View style={{
+                    height: '100%',
+                    backgroundColor: '#ffffff',
+                    borderRadius: 3,
+                    width: `${attendanceStats.percentage || 0}%`
+                  }} />
                 </View>
-                <Text style={styles.progressText}>
+                <Text style={{ fontSize: 10, color: '#ffffff', opacity: 0.9 }}>
                   {attendanceLoading ? 'Loading...' : `${attendanceStats.percentage || 0}% attendance rate`}
                 </Text>
               </View>
@@ -309,429 +369,93 @@ export default function HomeScreen() {
         </View>
 
         {/* Quick Actions */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <Text style={styles.sectionSubtitle}>Access your tools</Text>
+        <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ marginBottom: 15 }}>
+            <Text style={{ fontSize: 20, fontWeight: '600', color: '#1f2937', marginBottom: 4 }}>Quick Actions</Text>
+            <Text style={{ fontSize: 14, color: '#6b7280' }}>Access your tools</Text>
           </View>
-          <View style={styles.quickActionsGrid}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             {quickActions.map((action, index) => (
-              <TouchableOpacity key={index} style={styles.actionCard} onPress={() => router.push(action.route)}>
+              <TouchableOpacity 
+                key={index} 
+                style={{
+                  backgroundColor: '#ffffff',
+                  padding: 16,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  width: '30%',
+                  marginBottom: 12,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 6,
+                  elevation: 2,
+                }} 
+                onPress={() => router.push(action.route)}
+              >
                 <LinearGradient
                   colors={[action.color, action.color + '80']}
-                  style={styles.actionIcon}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}
                 >
                   <action.icon size={24} color="#ffffff" />
                 </LinearGradient>
-                <Text style={styles.actionTitle}>{action.title}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151', textAlign: 'center' }}>{action.title}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
         {/* Recent Activities */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activities</Text>
-            <Text style={styles.sectionSubtitle}>Stay updated</Text>
+        <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ marginBottom: 15 }}>
+            <Text style={{ fontSize: 20, fontWeight: '600', color: '#1f2937', marginBottom: 4 }}>Recent Activities</Text>
+            <Text style={{ fontSize: 14, color: '#6b7280' }}>Stay updated</Text>
           </View>
-          <View style={styles.activitiesContainer}>
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 3,
+          }}>
             {recentActivities.map((activity, index) => (
-              <TouchableOpacity key={index} style={styles.activityCard}>
-                <View style={styles.activityIcon}>
+              <TouchableOpacity key={index} style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: '#f3f4f6',
+              }}>
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#f1f5f9',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 12,
+                }}>
                   <Bookmark size={16} color="#667eea" />
                 </View>
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityTitle}>{activity.title}</Text>
-                  <Text style={styles.activityTime}>{activity.time}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '500', color: '#1f2937', marginBottom: 4 }}>{activity.title}</Text>
+                  <Text style={{ fontSize: 12, color: '#6b7280' }}>{activity.time}</Text>
                 </View>
                 <ChevronRight size={20} color="#6b7280" />
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
-        {/* Today's Schedule */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Schedule</Text>
-            <Text style={styles.sectionSubtitle}>Your classes</Text>
-          </View>
-          <View style={styles.scheduleContainer}>
-            <View style={styles.scheduleItem}>
-              <View style={styles.scheduleTimeContainer}>
-                <Text style={styles.scheduleTime}>9:00</Text>
-                <Text style={styles.schedulePeriod}>AM</Text>
-              </View>
-              <View style={styles.scheduleContent}>
-                <Text style={styles.scheduleSubject}>Mathematics</Text>
-                <Text style={styles.scheduleTeacher}>Mr. Smith</Text>
-              </View>
-              <View style={styles.scheduleStatus}>
-                <View style={styles.statusDot} />
-              </View>
-            </View>
-            <View style={styles.scheduleItem}>
-              <View style={styles.scheduleTimeContainer}>
-                <Text style={styles.scheduleTime}>10:00</Text>
-                <Text style={styles.schedulePeriod}>AM</Text>
-              </View>
-              <View style={styles.scheduleContent}>
-                <Text style={styles.scheduleSubject}>English</Text>
-                <Text style={styles.scheduleTeacher}>Ms. Johnson</Text>
-              </View>
-              <View style={styles.scheduleStatus}>
-                <View style={[styles.statusDot, styles.statusDotActive]} />
-              </View>
-            </View>
-            <View style={styles.scheduleItem}>
-              <View style={styles.scheduleTimeContainer}>
-                <Text style={styles.scheduleTime}>11:00</Text>
-                <Text style={styles.schedulePeriod}>AM</Text>
-              </View>
-              <View style={styles.scheduleContent}>
-                <Text style={styles.scheduleSubject}>Physics</Text>
-                <Text style={styles.scheduleTeacher}>Dr. Brown</Text>
-              </View>
-              <View style={styles.scheduleStatus}>
-                <View style={styles.statusDot} />
-              </View>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6b7280',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  profileContainer: {
-    position: 'relative',
-    marginRight: 15,
-  },
-  profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 3,
-    borderColor: '#ffffff',
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#10b981',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  userDetails: {
-    flex: 1,
-  },
-  welcomeText: {
-    color: '#e2e8f0',
-    fontSize: 14,
-  },
-  userName: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  subtitle: {
-    color: '#e2e8f0',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  notificationButton: {
-    position: 'relative',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#ef4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationBadgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-
-
-  section: {
-    marginHorizontal: 16,
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionCard: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '30%',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  actionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-    textAlign: 'center',
-  },
-  activitiesContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  activityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  activityTime: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  scheduleContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  scheduleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  scheduleTimeContainer: {
-    alignItems: 'center',
-    marginRight: 16,
-    minWidth: 50,
-  },
-  scheduleTime: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#667eea',
-  },
-  schedulePeriod: {
-    fontSize: 10,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  scheduleContent: {
-    flex: 1,
-  },
-  scheduleSubject: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  scheduleTeacher: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  scheduleStatus: {
-    marginLeft: 12,
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#e5e7eb',
-  },
-  statusDotActive: {
-    backgroundColor: '#10b981',
-  },
-  // Attendance Styles
-  attendanceCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  attendanceGradient: {
-    padding: 16,
-  },
-  attendanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  attendanceIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  attendanceStats: {
-    alignItems: 'flex-end',
-  },
-  attendancePercentage: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 2,
-  },
-  attendanceLabel: {
-    fontSize: 11,
-    color: '#ffffff',
-    opacity: 0.9,
-  },
-  attendanceDetails: {
-    marginBottom: 12,
-  },
-  attendanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  attendanceItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  attendanceNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 2,
-  },
-  attendanceText: {
-    fontSize: 10,
-    color: '#ffffff',
-    opacity: 0.8,
-    textAlign: 'center',
-  },
-  attendanceProgress: {
-    alignItems: 'center',
-  },
-  progressBar: {
-    width: '100%',
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 3,
-    marginBottom: 6,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 10,
-    color: '#ffffff',
-    opacity: 0.9,
-  },
-});

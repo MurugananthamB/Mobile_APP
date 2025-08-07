@@ -15,7 +15,7 @@ const generateToken = (user) => {
 // Register a new user
 exports.userRegister = async (req, res) => {
   try {
-    const { 
+    const {
       userid, 
       name, 
       email, 
@@ -85,12 +85,20 @@ exports.userRegister = async (req, res) => {
       userData.experience = experience;
     }
 
+    console.log('User data before creating newUser:', userData); // Debug log userData
+
     // Create new user
     const newUser = new User(userData);
 
     // Save to database
     const savedUser = await newUser.save();
     console.log('User saved successfully:', savedUser._id);
+
+    // Generate the barcode (which also serves as roll number)
+    const generatedIdentifier = 'MAPH' + savedUser._id;
+    savedUser.barcode = generatedIdentifier;
+    // Assign the same value to rollNo as per the new requirement
+    await savedUser.save();
 
     // Generate token for immediate login after registration
     const token = generateToken(savedUser);

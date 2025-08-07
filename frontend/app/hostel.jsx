@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,318 +43,170 @@ export default function HostelScreen() {
 
   if (!userData) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading hostel information...</Text>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-gray-500">Loading hostel information...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient
           colors={['#1e40af', '#3b82f6']}
-          style={styles.header}
+          className="p-6"
         >
-          <View style={styles.headerContent}>
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>Hostel</Text>
-              <Text style={styles.headerSubtitle}>GBPS Student Hostel</Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-2xl font-bold text-white">Hostel</Text>
+              <Text className="text-white opacity-90">GBPS Student Hostel</Text>
             </View>
-                         <View style={styles.headerActions}>
-               <TouchableOpacity 
-                 style={[styles.contactButton, styles.scheduleButton]}
-                 onPress={() => router.push('/schedule')}
-               >
-                 <BookOpen size={20} color="#ffffff" />
-               </TouchableOpacity>
-               <TouchableOpacity 
-                 style={[styles.contactButton, styles.attendanceButton]}
-                 onPress={() => router.push('/hostel-attendance')}
-               >
-                 <Calendar size={20} color="#ffffff" />
-               </TouchableOpacity>
-             </View>
+            <View className="flex-row space-x-2">
+              <TouchableOpacity 
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                onPress={() => router.push('/schedule')}
+              >
+                <BookOpen size={20} color="#ffffff" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                onPress={() => router.push('/hostel-attendance')}
+              >
+                <Calendar size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
-                                 {/* Content */}
-        
-        
-        
+        {/* Content */}
         {userData?.isHostelResident ? (
           <>
             {/* Room Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Room Information</Text>
-              <View style={styles.roomCard}>
-                <View style={styles.roomHeader}>
-                  <View style={styles.roomNumberContainer}>
+            <View className="p-4">
+              <Text className="text-lg font-bold text-gray-900 mb-3">Room Information</Text>
+              <View className="bg-white rounded-xl p-6 shadow-sm">
+                <View className="flex-row items-center justify-between mb-4">
+                  <View className="flex-row items-center">
                     <Bed size={20} color="#1e40af" />
-                    <Text style={styles.roomNumber}>{userData?.hostelRoom || 'Not assigned'}</Text>
+                    <Text className="text-lg font-semibold text-gray-900 ml-2">
+                      {userData?.hostelRoom || 'Not assigned'}
+                    </Text>
                   </View>
-                  <View style={styles.roomStatus}>
-                    <Text style={styles.roomStatusText}>Occupied</Text>
+                  <View className="bg-green-100 px-3 py-1 rounded-full">
+                    <Text className="text-green-700 text-sm font-medium">Occupied</Text>
                   </View>
                 </View>
                 
-                <View style={styles.roomDetails}>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Floor:</Text>
-                    <Text style={styles.detailValue}>{userData?.hostelFloor || 'Not assigned'}</Text>
+                <View className="space-y-3">
+                  <View className="flex-row items-center">
+                    <Users size={16} color="#6b7280" />
+                    <Text className="text-gray-600 ml-2">Room Type: {userData?.hostelRoomType || 'Standard'}</Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Block:</Text>
-                    <Text style={styles.detailValue}>{userData?.hostelBlock || 'Not assigned'}</Text>
+                  <View className="flex-row items-center">
+                    <MapPin size={16} color="#6b7280" />
+                    <Text className="text-gray-600 ml-2">Floor: {userData?.hostelFloor || 'Ground'}</Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Warden:</Text>
-                    <Text style={styles.detailValue}>{userData?.hostelWarden || 'Not assigned'}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Warden Phone:</Text>
-                    <Text style={styles.detailValue}>{userData?.hostelWardenPhone || 'Not available'}</Text>
+                  <View className="flex-row items-center">
+                    <Clock size={16} color="#6b7280" />
+                    <Text className="text-gray-600 ml-2">Check-in: {userData?.hostelCheckIn || 'Not specified'}</Text>
                   </View>
                 </View>
               </View>
             </View>
 
-            {/* Stay Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Stay Information</Text>
-              <View style={styles.stayCard}>
-                <View style={styles.stayItem}>
-                  <Calendar size={20} color="#1e40af" />
-                  <View style={styles.stayText}>
-                    <Text style={styles.stayLabel}>Check-in Date</Text>
-                    <Text style={styles.stayValue}>{userData?.hostelCheckInDate || 'Not set'}</Text>
+            {/* Facilities */}
+            <View className="p-4">
+              <Text className="text-lg font-bold text-gray-900 mb-3">Available Facilities</Text>
+              <View className="bg-white rounded-xl p-6 shadow-sm">
+                <View className="grid grid-cols-2 gap-4">
+                  <View className="flex-row items-center p-3 bg-blue-50 rounded-lg">
+                    <Wifi size={20} color="#1e40af" />
+                    <Text className="text-gray-700 ml-2 font-medium">WiFi</Text>
+                  </View>
+                  <View className="flex-row items-center p-3 bg-green-50 rounded-lg">
+                    <Utensils size={20} color="#059669" />
+                    <Text className="text-gray-700 ml-2 font-medium">Mess</Text>
+                  </View>
+                  <View className="flex-row items-center p-3 bg-purple-50 rounded-lg">
+                    <Shield size={20} color="#7c3aed" />
+                    <Text className="text-gray-700 ml-2 font-medium">Security</Text>
+                  </View>
+                  <View className="flex-row items-center p-3 bg-orange-50 rounded-lg">
+                    <Clock3 size={20} color="#ea580c" />
+                    <Text className="text-gray-700 ml-2 font-medium">24/7 Access</Text>
                   </View>
                 </View>
-                <View style={styles.stayItem}>
-                  <Calendar size={20} color="#dc2626" />
-                  <View style={styles.stayText}>
-                    <Text style={styles.stayLabel}>Check-out Date</Text>
-                    <Text style={styles.stayValue}>{userData?.hostelCheckOutDate || 'Not set'}</Text>
+              </View>
+            </View>
+
+            {/* Contact Information */}
+            <View className="p-4">
+              <Text className="text-lg font-bold text-gray-900 mb-3">Contact Information</Text>
+              <View className="bg-white rounded-xl p-6 shadow-sm">
+                <View className="space-y-4">
+                  <View className="flex-row items-center">
+                    <Phone size={16} color="#6b7280" />
+                    <Text className="text-gray-600 ml-3">Hostel Office: +91 98765 43210</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <Mail size={16} color="#6b7280" />
+                    <Text className="text-gray-600 ml-3">hostel@gbps.edu.in</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <MapPin size={16} color="#6b7280" />
+                    <Text className="text-gray-600 ml-3">Block A, Ground Floor</Text>
                   </View>
                 </View>
-                <View style={styles.stayItem}>
-                  <User size={20} color="#10b981" />
-                  <View style={styles.stayText}>
-                    <Text style={styles.stayLabel}>Resident Status</Text>
-                    <Text style={[styles.stayValue, { color: '#10b981', fontWeight: '600' }]}>
-                      Active Resident
-                    </Text>
+              </View>
+            </View>
+
+            {/* Rules and Regulations */}
+            <View className="p-4">
+              <Text className="text-lg font-bold text-gray-900 mb-3">Rules & Regulations</Text>
+              <View className="bg-white rounded-xl p-6 shadow-sm">
+                <View className="space-y-3">
+                  <View className="flex-row items-start">
+                    <View className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3" />
+                    <Text className="text-gray-600 flex-1">Curfew time: 10:00 PM</Text>
+                  </View>
+                  <View className="flex-row items-start">
+                    <View className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3" />
+                    <Text className="text-gray-600 flex-1">Visitors allowed only during visiting hours</Text>
+                  </View>
+                  <View className="flex-row items-start">
+                    <View className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3" />
+                    <Text className="text-gray-600 flex-1">Maintain cleanliness in rooms</Text>
+                  </View>
+                  <View className="flex-row items-start">
+                    <View className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3" />
+                    <Text className="text-gray-600 flex-1">Report any issues to hostel office</Text>
                   </View>
                 </View>
               </View>
             </View>
           </>
         ) : (
-          /* Not a hostel resident */
-          <View style={styles.section}>
-            <View style={styles.noResidentCard}>
-              <User size={48} color="#6b7280" />
-              <Text style={styles.noResidentTitle}>Not a Hostel Resident</Text>
-              <Text style={styles.noResidentText}>
-                You are not currently registered as a hostel resident. 
-                Contact the administration for hostel accommodation.
+          /* Non-Hostel Resident View */
+          <View className="p-4">
+            <View className="bg-white rounded-xl p-8 shadow-sm items-center">
+              <Bed size={48} color="#9ca3af" />
+              <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">Not a Hostel Resident</Text>
+              <Text className="text-gray-500 text-center mb-6">
+                You are not currently registered as a hostel resident. Contact the hostel office for accommodation details.
               </Text>
+              <TouchableOpacity 
+                className="bg-blue-500 px-6 py-3 rounded-lg"
+                onPress={() => Alert.alert('Contact', 'Please contact the hostel office for registration.')}
+              >
+                <Text className="text-white font-semibold">Contact Hostel Office</Text>
+              </TouchableOpacity>
             </View>
           </View>
-                 )}
+        )}
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 30,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#e2e8f0',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  contactButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scheduleButton: {
-    backgroundColor: '#ff6b6b',
-    shadowColor: '#ff6b6b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  attendanceButton: {
-    backgroundColor: '#4ecdc4',
-    shadowColor: '#4ecdc4',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  
-  section: {
-    marginHorizontal: 20,
-    marginBottom: 25,
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 15,
-  },
-  roomCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  roomHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  roomNumberContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  roomNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1e40af',
-    marginLeft: 8,
-  },
-  roomStatus: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roomStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  roomDetails: {
-    marginBottom: 20,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
-  },
-  stayCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stayItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  stayText: {
-    marginLeft: 10,
-  },
-  stayLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  stayValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  noResidentCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  noResidentTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginTop: 15,
-    marginBottom: 8,
-  },
-  noResidentText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  loadingText: {
-    fontSize: 18,
-    color: '#1e40af',
-    fontWeight: '600',
-  },
-
-  
-}); 
+} 

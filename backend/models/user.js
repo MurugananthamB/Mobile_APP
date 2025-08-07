@@ -42,10 +42,27 @@ const userSchema = new mongoose.Schema({
     validate: {
       validator: function(v) {
         if (!v) return true; // Allow empty for students or existing users
-        return /^MAPH\d+$/.test(v);
+        return /^MAPH[0-9a-fA-F]+$/.test(v);
       },
       message: 'Employee ID must start with MAPH followed by numbers'
     }
+  },
+  // Barcode for attendance scanning (MAPH + userId format)
+  barcode: {
+    type: String,
+    unique: true,
+    sparse: true, // Allows null values
+    validate: {
+      validator: function(v) {
+        // Allow null, undefined, or empty string
+        if (v === null || v === undefined || v === '') {
+          return true;
+        }
+        // Validate format: MAPH followed by one or more hexadecimal characters
+        return /^MAPH[0-9a-fA-F]+$/.test(v);
+      },
+      message: 'Barcode must be empty or start with MAPH followed by numbers'
+    },
   },
   // Staff-specific fields
   qualification: {

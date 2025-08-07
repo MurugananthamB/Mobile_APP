@@ -2,13 +2,14 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Settings, UserCheck, Users } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { isManagement } from '../../utils/roleUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 import ApiService from '../../services/api';
 
 export default function AttendanceScreen() {
   const router = useRouter(); // Initialize useRouter
+  const params = useLocalSearchParams(); // Get route parameters
   const [userRole, setUserRole] = useState(null);
   const [isManagement, setIsManagement] = useState(false);
   const [markedDays, setMarkedDays] = useState([]); // Initialize markedDays as an array
@@ -17,13 +18,13 @@ export default function AttendanceScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date()); // State for the currently displayed month
   const [loading, setLoading] = useState(true); // Overall loading state
   const [loadingStats, setLoadingStats] = useState(false); // Loading state specifically for attendance stats
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // State for selected date
   const [attendanceSummary, setAttendanceSummary] = useState({
  totalDays: 0,
     presentDays: 0,
     absentDays: 0,
     percentage: 0,
   });
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // New state for selected date
   const [isNavigatingToScan, setIsNavigatingToScan] = useState(false); // State for scan navigation loading
 
   // Check user role on component mount
@@ -31,24 +32,26 @@ export default function AttendanceScreen() {
     checkUserRole();
   }, []);
 
-  // Load data when the component mounts and when the month changes or modal is closed (after setting day type)
+  // Handle selected date from notifications
+  useEffect(() => {
+    if (params.selectedDate) {
+      const selectedDate = new Date(params.selectedDate);
+      setCurrentMonth(selectedDate);
+      setSelectedCalendarDate(params.selectedDate);
+      
+      // Show a brief highlight for the selected date
+      setTimeout(() => {
+        setSelectedCalendarDate(null);
+      }, 3000);
+    }
+  }, [params.selectedDate]);
+
+  // Load data when the component mounts and when the month changes
   useEffect(() => {
     loadMarkedDays();
     loadAttendanceStats();
     loadIndividualAttendance();
   }, [currentMonth, showDayTypeModal]); // Depend on currentMonth and showDayTypeModal
-
-  // Preload scan attendance page for instant navigation
-  useEffect(() => {
-    if (isManagement) {
-      // Preload the scan attendance page by prefetching the route
-      try {
-        router.prefetch('/scanAttendance');
-      } catch (error) {
-        console.log('Prefetch error:', error);
-      }
-    }
-  }, [isManagement, router]);
 
   // Reset navigation state when component focuses
   useEffect(() => {
@@ -85,7 +88,6 @@ export default function AttendanceScreen() {
     }
   }, [currentMonth]);
 
-
   const loadAttendanceStats = async () => {
     try {
       setLoadingStats(true);
@@ -105,7 +107,6 @@ export default function AttendanceScreen() {
     } finally { setLoadingStats(false); } // You might set a loading state for stats specifically if needed
   };
 
-  
   const loadIndividualAttendance = async () => {
     try {
       const month = currentMonth.getMonth() + 1;
@@ -138,6 +139,7 @@ export default function AttendanceScreen() {
       if (userData && userData.role) {
         setUserRole(userData.role);
         setIsManagement(userData.role === 'management');
+        console.log('User Role:', userData.role, 'Is Management:', userData.role === 'management');
       }
     } catch (error) {
       console.error('Error checking user role:', error);
@@ -160,7 +162,7 @@ export default function AttendanceScreen() {
     try {
       const dateStr = selectedCalendarDate;
       
-      const dayData = {
+      const dayData = { // Ensure this matches backend expected format
         date: dateStr,
         dayType: dayType,
         holidayType: 'both',
@@ -376,35 +378,15 @@ export default function AttendanceScreen() {
 
         {/* Management Buttons (Visible based on role) */}
         {isManagement && (
-          <>
-            <TouchableOpacity
-              style={[styles.scanAttendanceButton, { opacity: isNavigatingToScan ? 0.7 : 1 }]}
-              onPress={() => {
-                // Provide immediate visual feedback and instant navigation
-                setIsNavigatingToScan(true);
-                router.push('/scanAttendance');
-              }}
-              activeOpacity={0.6}
-              pressRetentionOffset={20}
-              disabled={isNavigatingToScan}
-            >
-              <UserCheck size={20} color="#ffffff" />
-              <Text style={styles.scanAttendanceButtonText}>
-                {isNavigatingToScan ? 'Loading...' : 'Scan Attendance'}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]}
-              onPress={() => router.push('/management-attendance')}
-              activeOpacity={0.7}
-            >
-              <Users size={20} color="#ffffff" />
-              <Text style={styles.scanAttendanceButtonText}>Mark All Users</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]}
+            onPress={() => router.push('/management-attendance')}
+            activeOpacity={0.7}
+          >
+            <Users size={20} color="#ffffff" />
+            <Text style={styles.scanAttendanceButtonText}>Mark All Users</Text>
+          </TouchableOpacity>
         )}
-
 
         {/* Calendar Navigation */}
         <View style={styles.calendarHeader}>
@@ -436,11 +418,12 @@ export default function AttendanceScreen() {
               }
 
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const isSelectedDate = selectedCalendarDate === dateStr;
               
                              // Check for individual attendance first
                const individualRecord = Array.isArray(individualAttendance) ? individualAttendance.find(record => {
-                 console.log('🔍 Checking record:', record, 'for date:', dateStr);
-                 
+                 // console.log('🔍 Checking record:', record, 'for date:', dateStr);
+
                  // Convert calendar date string to Date object for comparison
                  const calendarDate = new Date(dateStr);
                  
@@ -457,7 +440,7 @@ export default function AttendanceScreen() {
                  
                  if (recordDate) {
                    // Compare dates using toDateString() to ignore time
-                   const isMatch = recordDate.toDateString() === calendarDate.toDateString();
+                   const isMatch = recordDate.toDateString() === calendarDate.toDateString(); // compare date parts only
                    console.log('📅 Date comparison:', recordDate.toDateString(), '===', calendarDate.toDateString(), 'Match:', isMatch);
                    return isMatch;
                  }
@@ -467,7 +450,7 @@ export default function AttendanceScreen() {
                
 
                
-               console.log('📊 Found individual record for', dateStr, ':', individualRecord);
+               // console.log('📊 Found individual record for', dateStr, ':', individualRecord);
                
                let displayStatus = null;
                let isIndividualAttendance = false;
@@ -475,11 +458,11 @@ export default function AttendanceScreen() {
                if (individualRecord && individualRecord.status) {
                  displayStatus = individualRecord.status.toLowerCase();
                  isIndividualAttendance = true;
-                 console.log('✅ Using individual attendance:', displayStatus);
+                 // console.log('✅ Using individual attendance:', displayStatus);
                } else {
                  // If no individual attendance, check for management-defined marked day
                  displayStatus = markedDays[dateStr];
-                 isIndividualAttendance = false;
+                 isIndividualAttendance = false; // It's a management mark, not individual attendance
                  console.log('📋 Using management day type:', displayStatus);
                }
               
@@ -488,11 +471,12 @@ export default function AttendanceScreen() {
                   key={index} 
                   style={[
                     styles.calendarDay,
-                    isManagement && styles.calendarDayClickable
+                    isManagement && styles.calendarDayClickable,
+                    isSelectedDate && styles.selectedCalendarDay
                   ]}
                   onPress={() => handleCalendarDayPress(day)}
                 >
-                  <Text style={styles.dayNumber}>{day}</Text>
+                  <Text style={[styles.dayNumber, isSelectedDate && styles.selectedDayNumber]}>{day}</Text>
                   {/* Display status indicator if a status is determined */}
                   {displayStatus && (
                     <View style={[styles.statusIndicator, { backgroundColor: getIndicatorColor(displayStatus) }]}>
@@ -511,7 +495,7 @@ export default function AttendanceScreen() {
                        {displayStatus === 'working' && (
                          <Text style={[styles.dayStatusText, { color: '#6b7280' }]}>Working</Text>
                        )}
-                     </View>
+                     </View> // Fixed closing tag
                    )}
                 </TouchableOpacity>
               );
@@ -758,10 +742,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     borderRadius: 8,
   },
+  selectedCalendarDay: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+  },
   dayNumber: {
     fontSize: 14,
     fontWeight: '500',
     color: '#1f2937',
+  },
+  selectedDayNumber: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
   emptyDay: {
     width: '14.28%',

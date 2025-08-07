@@ -320,10 +320,10 @@ class ApiService {
     });
   }
 
-  async scanMarkAttendance(userId) {
-    return await this.makeRequest('/attendance/scan-mark', {
+  async scanMarkAttendance(barcode) {
+    return await this.makeRequest('/scanner/scan', {
       method: 'POST',
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ barcode }),
     });
   }
 

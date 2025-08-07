@@ -1,12 +1,18 @@
 {
   "expo": {
-    "name": "School Mobile App",
+    "name": "GBPS",
     "slug": "school-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/gbps.jpg",
+    "icon": "./assets/images/playstore-icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
+
+     "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aadarsh050.schoolmobileapp",
@@ -31,6 +37,8 @@
         }
       ]
     ],
+
+    
     "android": {
       "package": "com.aadarsh050.schoolmobileapp",
       "permissions": [

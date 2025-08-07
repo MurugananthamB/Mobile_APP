@@ -1,5 +1,6 @@
-// controllers/attendanceController.js
+// backend/controllers/attendanceController.js
 const { Attendance, DayManagement } = require('../models/attendance');
+const User = require('../models/user'); // Import User model
 
 // Get attendance records
 exports.getAttendance = async (req, res) => {
@@ -163,19 +164,19 @@ exports.markAttendance = async (req, res) => {
         holidayCount++;
       } else if (markedDayType === 'leave') {
         leaveCount++;
- workingDaysCount++; // Leaves count towards total working days
       } else if (markedDayType === 'working') {
         workingDaysCount++;
         if (record) {
           if (record.status === 'present') {
-            presentCount++;
- workingDaysCount++; // Only count as a working day if marked present on an unmarked day
-          } else if (record.status === 'absent') {
-            absentCount++;
+            presentCount++; // Count present days only on working days or unmarked days with records
           } else if (record.status === 'late') {
             lateCount++;
+          } else if (record.status === 'half_present_morning' || record.status === 'half_present_afternoon') {
+ presentCount += 0.5;
+          } else if (record.status === 'half_absent') {
+ absentCount += 0.5;
           }
-        } else {
+        } else { // If it's a marked working day but no record exists, it's an absence
            // If it's a working day but no record, assume absent
           absentCount++;
         }
@@ -183,16 +184,17 @@ exports.markAttendance = async (req, res) => {
         // Default behavior if not a marked day (consider weekends if applicable)
          if (record) {
           if (record.status === 'present') {
-            presentCount++;
- workingDaysCount++; // Only count as a working day if marked present on an unmarked day
-          } else if (record.status === 'absent') {
-            absentCount++;
+            presentCount++; // Count present days only on working days or unmarked days with records
           } else if (record.status === 'late') {
             lateCount++;
           }
         }
       }
  }
+
+ // Total working days should be the count of marked 'working' days plus any unmarked days with attendance records.
+ // Recalculate working days based on attendance records that are not marked as 'holiday' or 'leave'
+ workingDaysCount = attendance.records.filter(record => markedDaysMap[record.date.toDateString()] !== 'holiday' && markedDaysMap[record.date.toDateString()] !== 'leave').length;
 
  // Update attendance document with calculated summary
  attendance.presentDays = presentCount;
@@ -216,135 +218,146 @@ exports.markAttendance = async (req, res) => {
     }
 };
 
-// Mark attendance using scanned ID
+// Mark attendance using scanned ID - Optimized for high-speed concurrent scanning
 exports.scanMarkAttendance = async (req, res) => {
   try {
-    const { userId } = req.body; // Extract userId from request body
-    console.log('Received userId in backend:', userId); // Log received userId
+    const { barcode } = req.body; // Extract barcode from request body
+
+    if (!barcode) {
+      return res.status(400).json({ success: false, message: 'Barcode not provided' });
+    }
+    if (!barcode.startsWith('MAPH')) {
+      return res.status(400).json({ success: false, message: 'Invalid barcode format. Must start with MAPH.' });
+    }
+    const userId = barcode.substring(4);
+    if (!userId) {
+       return res.status(400).json({ success: false, message: 'Invalid barcode format. User ID missing.' });
+    }
+
+    // Try to find user by userid field first, then by barcode
+    let user = await User.findOne({ userid: userId });
+    if (!user) {
+      // If not found by userid, try to find by barcode
+      user = await User.findOne({ barcode: barcode });
+    }
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
     // Create a Date object representing the beginning of the current day
     const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    // const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
- 
-    let attendance = await Attendance.findOne({ 
-      userId: userId, 
-      month: currentMonth, 
-      year: currentYear 
-    });
- console.log('Attempting to find attendance for userId:', userId); // Log attempt to find attendance
+    const currentTime = currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
-    if (!attendance) {
-      attendance = new Attendance({
-        userId: userId,
-        month: currentMonth,
-        year: currentYear,
-        records: []
-      });
-    }
- console.log('Attendance found:', attendance); // Log the found or new attendance document
+    // Use findOneAndUpdate for atomic operations to prevent race conditions
 
-    // Check if a record for today already exists
-    const existingRecordIndex = attendance.records.findIndex(record => 
-      record.date.toDateString() === today.toDateString()
-    );
-
-    const checkInTime = '09:00';
-    const checkOutTime = '16:00';
-
-    if (existingRecordIndex > -1) {
-      // Update existing record for subsequent scans (check-out)
-      attendance.records[existingRecordIndex].dayType = 'full-day';
-      attendance.records[existingRecordIndex].checkOutTime = checkOutTime;
-    } else {
-      // Add new record for today
-      // Create new record for the first scan of the day (check-in)
-      attendance.records.push({ date: today, status: 'present', dayType: 'half-day', checkInTime: checkInTime });
-    }
-
- console.log('Attempting to save attendance:', attendance); // Log the attendance document before saving
-    await attendance.save();
- console.log('Attendance saved successfully!'); // Log successful save
-
-    // Recalculate monthly summary after saving the record - This section needs review for the new dayType field
-    let presentCount = 0;
-    let absentCount = 0;
-    let lateCount = 0;
-    let holidayCount = 0;
-    let leaveCount = 0;
-    let workingDaysCount = 0;
-
-    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-    attendance.totalDays = daysInMonth; // Assuming total days in month
-
-     const dayManagementRecords = await DayManagement.find({
-      date: {
-        $gte: new Date(currentYear, currentMonth - 1, 1),
-        $lte: new Date(currentYear, currentMonth - 1, daysInMonth)
+    // Check if a record for today already exists using atomic operation
+    const existingRecord = await Attendance.findOne({
+      userId: user._id,
+      month: currentMonth,
+      year: currentYear,
+      'records.date': {
+        $gte: today,
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
       }
     });
-    const markedDaysMap = dayManagementRecords.reduce((acc, day) => {
-      acc[day.date.toDateString()] = day.dayType;
-      return acc;
-    }, {});
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = new Date(currentYear, currentMonth - 1, day);
-      const dateStr = currentDate.toDateString();
-      const record = attendance.records.find(r => r.date.toDateString() === dateStr);
-      const markedDayType = markedDaysMap[dateStr];
-
-       if (markedDayType === 'holiday') {
-        holidayCount++;
-      } else if (markedDayType === 'leave') {
-        leaveCount++;
-      } else if (markedDayType === 'working') {
- workingDaysCount++;
-        if (record) {
-          if (record.status === 'present') {
-          } else if (record.status === 'absent') {
-            absentCount++;
-          } else if (record.status === 'late') {
-            lateCount++;
+    if (existingRecord) {
+      // Update existing record for subsequent scans (check-out) - atomic operation
+      const result = await Attendance.updateOne(
+        {
+          userId: user._id,
+          month: currentMonth,
+          year: currentYear,
+          'records.date': {
+            $gte: today,
+            $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
           }
-        } else {
-           // If it's a working day but no record, assume absent
-          absentCount++;
+        },
+        {
+          $set: {
+            'records.$.checkOutTime': currentTime
+          }
         }
+      );
+
+      if (result.modifiedCount > 0) {
+        return res.json({ success: true, message: `Checkout time recorded for user ${user.name}.` });
       } else {
-        // Default behavior if not a marked day (consider weekends if applicable)
-         if (record) {
-          if (record.status === 'present') {
-            presentCount++;
-          } else if (record.status === 'absent') {
-            absentCount++;
-          } else if (record.status === 'late') {
-            lateCount++;
+        return res.json({ success: false, message: 'Failed to update checkout time.' });
+      }
+    } else {
+      // Determine status based on scan time for the first scan of the day
+      let statusString = null; // Start with null
+      let message = 'Scan recorded.';
+
+      const [hours, minutes] = currentTime.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes;
+
+      // Define time windows in minutes
+      const morningStart = 8 * 60;  // 8:00 AM
+      const morningEnd = 9 * 60 + 30; // 9:30 AM
+      const afternoonStart = 12 * 60 + 30; // 12:30 PM
+      const afternoonEnd = 14 * 60; // 2:00 PM
+      const eveningStart = 15 * 60 + 30; // 3:30 PM
+      const eveningEnd = 19 * 60; // 7:00 PM
+
+      if (totalMinutes >= morningStart && totalMinutes <= morningEnd) {
+        statusString = 'half_present_morning';
+        message = 'Attendance marked as Half Day Present (Morning)';
+      } else if (totalMinutes >= afternoonStart && totalMinutes <= afternoonEnd) {
+        statusString = 'half_present_afternoon';
+        message = 'Attendance marked as Half Day Present (Afternoon)';
+      } else if (totalMinutes >= eveningStart && totalMinutes <= eveningEnd) {
+        statusString = 'present'; // Full day present
+        message = 'Attendance marked as Full Day Present';
+      }
+
+      // Add new record for today if a valid status was determined - atomic operation
+      if (statusString) {
+        // Use findOneAndUpdate with upsert for atomic operation
+        const result = await Attendance.findOneAndUpdate(
+          {
+            userId: user._id,
+            month: currentMonth,
+            year: currentYear
+          },
+          {
+            $push: {
+              records: {
+                date: today,
+                status: statusString,
+                checkInTime: currentTime,
+                checkOutTime: null
+              }
+            }
+          },
+          {
+            upsert: true,
+            new: true
           }
-        }
+        );
+
+        // Recalculate summary asynchronously to not block the response
+        recalculateAttendanceSummary(result, currentMonth, currentYear).catch(err => {
+          console.error('Error recalculating summary:', err);
+        });
+
+        res.json({ success: true, message: `${message} for user ${user.name}.` });
+      } else {
+        // If statusString is null, it means the scan was outside valid windows.
+        return res.json({ success: false, message: message + ' No attendance status marked.' });
       }
     }
 
- // Update attendance document with calculated summary
- attendance.presentDays = presentCount;
- attendance.absentDays = absentCount;
- attendance.lateDays = lateCount;
- attendance.holidayDays = holidayCount;
- attendance.leaveDays = leaveCount;
- attendance.workingDays = workingDaysCount;
- attendance.percentage = workingDaysCount > 0 ? ((presentCount + lateCount) / workingDaysCount) * 100 : 0;
-
- console.log('Attempting to save attendance with updated summary:', attendance);
- await attendance.save(); // Save the updated summary
- console.log('Attendance with updated summary saved successfully!');
-    res.json({ success: true, message: `Attendance marked for user ${userId}`, data: attendance });
   } catch (error) {
- console.error('Error in scanMarkAttendance:', error);
- res.status(500).json({ success: false, message: 'Server error', error: error.message });
- console.error('Error details:', error); // Log error details
+    console.error('Error in scanMarkAttendance:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
+
 // Day Management Functions (for management users)
 
 // Add a new day management record
@@ -575,8 +588,8 @@ exports.markAttendanceForAllUsers = async (req, res) => {
           continue;
         }
 
-        // Validate status (0=working, 1=present, 2=absent)
-        if (![0, 1, 2].includes(status)) {
+        // Validate status (0=working, 1=present, 2=absent, 3=half_present, 4=half_absent)
+        if (![0, 1, 2, 3, 4].includes(status)) {
           errors.push({ userId, error: 'Invalid status. Must be 0 (working), 1 (present), or 2 (absent)' });
           continue;
         }
@@ -592,6 +605,12 @@ exports.markAttendanceForAllUsers = async (req, res) => {
             break;
           case 2:
             statusString = 'absent';
+            break;
+ case 3:
+ statusString = 'half_present';
+            break;
+ case 4:
+ statusString = 'half_absent';
             break;
           default:
             statusString = 'working';
@@ -675,8 +694,6 @@ async function recalculateAttendanceSummary(attendance, month, year) {
     let workingDaysCount = 0;
 
     const daysInMonth = new Date(year, month, 0).getDate();
-    attendance.totalDays = daysInMonth;
-
     const dayManagementRecords = await DayManagement.find({
       date: {
         $gte: new Date(year, month - 1, 1),
@@ -692,38 +709,39 @@ async function recalculateAttendanceSummary(attendance, month, year) {
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(year, month - 1, day);
       const dateStr = currentDate.toDateString();
+ const markedDayType = markedDaysMap[dateStr];
       const record = attendance.records.find(r => r.date.toDateString() === dateStr);
-      const markedDayType = markedDaysMap[dateStr];
 
       if (markedDayType === 'holiday') {
         holidayCount++;
       } else if (markedDayType === 'leave') {
         leaveCount++;
-        workingDaysCount++;
       } else if (markedDayType === 'working') {
         workingDaysCount++;
         if (record) {
           if (record.status === 'present') {
             presentCount++;
-            workingDaysCount++;
           } else if (record.status === 'absent') {
             absentCount++;
           } else if (record.status === 'late') {
             lateCount++;
           }
-        } else {
+        } else { // If it's a marked working day but no record exists, it's an absence
           absentCount++;
         }
-      } else {
+      } else { // Default behavior for unmarked days (consider as working if attendance recorded)
         if (record) {
           if (record.status === 'present') {
-            presentCount++;
-            workingDaysCount++;
+ presentCount++;
           } else if (record.status === 'absent') {
             absentCount++;
           } else if (record.status === 'late') {
-            lateCount++;
-          }
+ lateCount++;
+          } else if (record.status === 'half_present_morning' || record.status === 'half_present_afternoon') {
+            presentCount += 0.5;
+          } else if (record.status === 'half_absent') {
+            absentCount += 0.5;
+          } 
         }
       }
     }
@@ -732,7 +750,11 @@ async function recalculateAttendanceSummary(attendance, month, year) {
     attendance.absentDays = absentCount;
     attendance.lateDays = lateCount;
     attendance.holidayDays = holidayCount;
-    attendance.leaveDays = leaveCount;
+ attendance.leaveDays = leaveCount;
+
+    // Calculate working days based on records that are not holiday or leave
+    workingDaysCount = attendance.records.filter(record => record.status !== 'holiday' && record.status !== 'leave').length;
+
     attendance.workingDays = workingDaysCount;
     attendance.percentage = workingDaysCount > 0 ? ((presentCount + lateCount) / workingDaysCount) * 100 : 0;
 

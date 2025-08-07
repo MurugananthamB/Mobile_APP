@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '../hooks/useFrameworkReady.jsx';
+import '../global.css';
 
 export default function RootLayout() {
   useFrameworkReady();
@@ -26,7 +27,7 @@ export default function RootLayout() {
         <Stack.Screen name="events" />
         <Stack.Screen name="hostel" />
         <Stack.Screen name="hostel-attendance" />
-        <Stack.Screen name="scanAttendance" />
+
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

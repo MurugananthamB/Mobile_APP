@@ -16,6 +16,7 @@ const eventsRoutes = require('./routes/eventsRoutes');
 const noticesRoutes = require('./routes/noticesRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const scannerRoutes = require('./routes/scannerRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -48,9 +49,15 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Log incoming requests (for development)
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Log incoming requests (for development) - optimized for high concurrency
 app.use((req, res, next) => {
-  console.log(`📥 ${req.method} ${req.path}`, req.body);
+  // Only log scanner requests for performance
+  if (req.path.includes('/scanner')) {
+    console.log(`📥 ${req.method} ${req.path}`);
+  }
   next();
 });
 
@@ -64,6 +71,7 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/notices', noticesRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/scanner', scannerRoutes);
 
 // Root Route
 app.get('/', (req, res) => {

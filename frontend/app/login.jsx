@@ -1,10 +1,14 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { User, Lock, Eye, EyeOff, Sparkles } from 'lucide-react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/api';
+
+const { width } = Dimensions.get('window');
+const isWeb = width > 768;
 
 export default function LoginScreen() {
   const [studentId, setStudentId] = useState('');
@@ -29,6 +33,33 @@ export default function LoginScreen() {
       const response = await ApiService.login(studentId, password);
       
       console.log('✅ Login successful:', response);
+
+      // --- Start Data Pre-fetching and Local Storage ---
+      try {
+        // Fetch data in parallel
+        const [profileResponse, unreadCountResponse, attendanceStatsResponse] = await Promise.all([
+          ApiService.getProfile(),
+          ApiService.getUnreadNotificationCount(),
+          ApiService.getAttendanceStats(),
+        ]);
+
+        // Store fetched data
+        if (profileResponse.success) {
+          await AsyncStorage.setItem('@user_profile_data', JSON.stringify(profileResponse.user));
+          console.log('✅ Stored user profile data');
+        }
+        if (unreadCountResponse.success) {
+          await AsyncStorage.setItem('@unread_notification_count', JSON.stringify(unreadCountResponse.data.count));
+          console.log('✅ Stored unread notification count');
+        }
+        if (attendanceStatsResponse.success) {
+           await AsyncStorage.setItem('@attendance_stats', JSON.stringify(attendanceStatsResponse.data));
+           console.log('✅ Stored attendance stats');
+        }
+      } catch (prefetchError) {
+        console.error('⚠️ Error during data pre-fetching or storage:', prefetchError);
+        // Continue to home page even if pre-fetching fails
+      }
       // Redirect to home page immediately on successful login
       router.replace('/(tabs)');
       
@@ -44,8 +75,6 @@ export default function LoginScreen() {
     }
   };
 
-
-
   const handleForgotPassword = () => {
     Alert.alert(
       'Forgot Password',
@@ -55,273 +84,263 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
       <LinearGradient
-        colors={['#e69138','#dc207d','#f1c232']}
-        style={styles.gradient}
+        colors={['#667eea', '#764ba2', '#f093fb']}
+        style={{ flex: 1 }}
       >
-        <View style={styles.content}>
-         
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../assets/images/logo.jpeg')}
-              style={styles.logo}
-            />
-            <Text style={styles.schoolName}>GBPS School App</Text>
-          </View>
-
-          {/* Login Form */}
-          <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>Welcome Back</Text>
-            <Text style={styles.formSubtitle}>Sign in to your account</Text>
-
-            <View style={styles.inputContainer}>
-              <User size={20} color="#6b7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="userid"
-                placeholderTextColor="#9ca3af"
-                value={studentId}
-                onChangeText={setStudentId}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
+        <View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          paddingHorizontal: 20 
+        }}>
+          <View style={{ 
+            width: '100%', 
+            maxWidth: 400,
+            backgroundColor: 'white',
+            borderRadius: 20,
+            padding: 30,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10
+          }}>
+            {/* Header */}
+            <View style={{ alignItems: 'center', marginBottom: 30 }}>
+              <View style={{ 
+                width: 80, 
+                height: 80, 
+                borderRadius: 40,
+                backgroundColor: '#fbbf24',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15
+              }}>
+                <Text style={{ fontSize: 32, fontWeight: 'bold', color: 'white' }}>GB</Text>
+              </View>
+              <Text style={{ 
+                fontSize: 24, 
+                fontWeight: 'bold', 
+                color: '#1f2937',
+                textAlign: 'center',
+                marginBottom: 5
+              }}>
+                GBPS School App
+              </Text>
+              <Text style={{ 
+                fontSize: 14, 
+                color: '#6b7280',
+                textAlign: 'center'
+              }}>
+                Your Digital Learning Companion
+              </Text>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Lock size={20} color="#6b7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#9ca3af"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              <TouchableOpacity 
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-                disabled={isLoading}
-              >
-                {showPassword ? 
-                  <EyeOff size={20} color="#6b7280" /> : 
-                  <Eye size={20} color="#6b7280" />
-                }
-              </TouchableOpacity>
+            {/* Welcome Section */}
+            <View style={{ alignItems: 'center', marginBottom: 25 }}>
+              <View style={{ 
+                width: 50, 
+                height: 50, 
+                borderRadius: 25,
+                backgroundColor: '#3b82f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10
+              }}>
+                <User size={24} color="white" />
+              </View>
+              <Text style={{ 
+                fontSize: 20, 
+                fontWeight: 'bold', 
+                color: '#1f2937',
+                textAlign: 'center',
+                marginBottom: 5
+              }}>
+                Welcome Back
+              </Text>
+              <Text style={{ 
+                fontSize: 14, 
+                color: '#6b7280',
+                textAlign: 'center'
+              }}>
+                Sign in to your account
+              </Text>
             </View>
 
-            {/* Remember Me */}
-            <View style={styles.rememberContainer}>
+            {/* Student ID Input */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '600', 
+                color: '#374151',
+                marginBottom: 8
+              }}>
+                Student ID
+              </Text>
+              <View style={{ 
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#f9fafb',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: '#e5e7eb'
+              }}>
+                <User size={18} color="#6b7280" style={{ marginRight: 12 }} />
+                <TextInput
+                  style={{ 
+                    flex: 1,
+                    fontSize: 16,
+                    color: '#1f2937'
+                  }}
+                  placeholder="Enter your student ID"
+                  placeholderTextColor="#9ca3af"
+                  value={studentId}
+                  onChangeText={setStudentId}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+              </View>
+            </View>
+
+            {/* Password Input */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '600', 
+                color: '#374151',
+                marginBottom: 8
+              }}>
+                Password
+              </Text>
+              <View style={{ 
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#f9fafb',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: '#e5e7eb'
+              }}>
+                <Lock size={18} color="#6b7280" style={{ marginRight: 12 }} />
+                <TextInput
+                  style={{ 
+                    flex: 1,
+                    fontSize: 16,
+                    color: '#1f2937'
+                  }}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9ca3af"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={{ padding: 4 }}
+                  disabled={isLoading}
+                >
+                  {showPassword ? 
+                    <EyeOff size={18} color="#6b7280" /> : 
+                    <Eye size={18} color="#6b7280" />
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Remember Me & Forgot Password */}
+            <View style={{ 
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 25
+            }}>
               <TouchableOpacity 
                 onPress={() => setRememberMe(!rememberMe)}
-                style={styles.checkboxContainer}
+                style={{ flexDirection: 'row', alignItems: 'center' }}
                 disabled={isLoading}
               >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+                <View style={{ 
+                  width: 18, 
+                  height: 18, 
+                  borderRadius: 4, 
+                  borderWidth: 2,
+                  marginRight: 8,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: rememberMe ? '#3b82f6' : 'transparent',
+                  borderColor: rememberMe ? '#3b82f6' : '#d1d5db'
+                }}>
+                  {rememberMe && <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✓</Text>}
                 </View>
-                <Text style={styles.rememberText}>Remember me</Text>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>Remember me</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
                 onPress={handleForgotPassword}
                 disabled={isLoading}
               >
-                <Text style={styles.forgotText}>Forgot Password?</Text>
+                <Text style={{ fontSize: 14, color: '#3b82f6', fontWeight: '600' }}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
             {/* Login Button */}
             <TouchableOpacity 
-              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+              style={{ 
+                borderRadius: 12,
+                overflow: 'hidden',
+                marginBottom: 20,
+                opacity: isLoading ? 0.7 : 1
+              }}
               onPress={handleLogin}
               disabled={isLoading}
             >
               <LinearGradient
-                colors={isLoading ? ['#9ca3af', '#6b7280'] : ['#1e40af', '#3b82f6']}
-                style={styles.loginGradient}
+                colors={isLoading ? ['#9ca3af', '#6b7280'] : ['#3b82f6', '#1d4ed8']}
+                style={{ 
+                  paddingVertical: 16,
+                  alignItems: 'center'
+                }}
               >
                 {isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#ffffff" />
-                    <Text style={styles.loginButtonText}>Signing In...</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="white" />
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white', marginLeft: 12 }}>Signing In...</Text>
                   </View>
                 ) : (
-                  <Text style={styles.loginButtonText}>Sign In</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>Sign In</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>
 
             {/* Register Link */}
             <TouchableOpacity 
-              style={styles.registerLink} 
+              style={{ alignItems: 'center' }}
               onPress={() => router.push('/register')}
               disabled={isLoading}
             >
-              <Text style={styles.registerText}>
-                Don't have an account? <Text style={styles.registerTextBold}>Sign Up</Text>
+              <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center' }}>
+                Don't have an account? <Text style={{ fontWeight: '600', color: '#3b82f6' }}>Sign Up</Text>
               </Text>
             </TouchableOpacity>
+          </View>
 
-
-
-
+          {/* Footer */}
+          <View style={{ alignItems: 'center', marginTop: 20 }}>
+            <Text style={{ fontSize: 12, color: 'white', opacity: 0.7, textAlign: 'center' }}>
+              Secure login powered by GBPS School System
+            </Text>
           </View>
         </View>
       </LinearGradient>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-  },
-  schoolName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  formContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  formTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1f2937',
-    textAlign: 'center',
-    marginBottom: 5,
-  },
-  formSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    marginBottom: 20,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 15,
-    fontSize: 16,
-    color: '#1f2937',
-  },
-  eyeIcon: {
-    padding: 5,
-  },
-  rememberContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#1e40af',
-    borderColor: '#1e40af',
-  },
-  checkmark: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  rememberText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  forgotText: {
-    fontSize: 14,
-    color: '#1e40af',
-    fontWeight: '600',
-  },
-  loginButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  loginButtonDisabled: {
-    opacity: 0.7,
-  },
-  loginGradient: {
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginLeft: 10,
-  },
-  registerLink: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  registerText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  registerTextBold: {
-    fontWeight: '600',
-    color: '#1e40af',
-  },
-
-
-});

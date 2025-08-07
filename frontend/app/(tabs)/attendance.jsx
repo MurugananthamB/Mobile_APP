@@ -2,13 +2,14 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Settings, UserCheck, Users } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { isManagement } from '../../utils/roleUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 import ApiService from '../../services/api';
 
 export default function AttendanceScreen() {
   const router = useRouter(); // Initialize useRouter
+  const params = useLocalSearchParams(); // Get route parameters
   const [userRole, setUserRole] = useState(null);
   const [isManagement, setIsManagement] = useState(false);
   const [markedDays, setMarkedDays] = useState([]); // Initialize markedDays as an array
@@ -17,6 +18,7 @@ export default function AttendanceScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date()); // State for the currently displayed month
   const [loading, setLoading] = useState(true); // Overall loading state
   const [loadingStats, setLoadingStats] = useState(false); // Loading state specifically for attendance stats
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // State for selected date
   const [attendanceSummary, setAttendanceSummary] = useState({
  totalDays: 0,
     presentDays: 0,
@@ -30,14 +32,26 @@ export default function AttendanceScreen() {
     checkUserRole();
   }, []);
 
+  // Handle selected date from notifications
+  useEffect(() => {
+    if (params.selectedDate) {
+      const selectedDate = new Date(params.selectedDate);
+      setCurrentMonth(selectedDate);
+      setSelectedCalendarDate(params.selectedDate);
+      
+      // Show a brief highlight for the selected date
+      setTimeout(() => {
+        setSelectedCalendarDate(null);
+      }, 3000);
+    }
+  }, [params.selectedDate]);
+
   // Load data when the component mounts and when the month changes
   useEffect(() => {
     loadMarkedDays();
     loadAttendanceStats();
     loadIndividualAttendance();
   }, [currentMonth, showDayTypeModal]); // Depend on currentMonth and showDayTypeModal
-
-
 
   // Reset navigation state when component focuses
   useEffect(() => {
@@ -74,7 +88,6 @@ export default function AttendanceScreen() {
     }
   }, [currentMonth]);
 
-
   const loadAttendanceStats = async () => {
     try {
       setLoadingStats(true);
@@ -94,7 +107,6 @@ export default function AttendanceScreen() {
     } finally { setLoadingStats(false); } // You might set a loading state for stats specifically if needed
   };
 
-  
   const loadIndividualAttendance = async () => {
     try {
       const month = currentMonth.getMonth() + 1;
@@ -142,6 +154,7 @@ export default function AttendanceScreen() {
       return;
     }
     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    setSelectedCalendarDate(dateStr);
     setShowDayTypeModal(true);
   };
 
@@ -405,6 +418,7 @@ export default function AttendanceScreen() {
               }
 
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const isSelectedDate = selectedCalendarDate === dateStr;
               
                              // Check for individual attendance first
                const individualRecord = Array.isArray(individualAttendance) ? individualAttendance.find(record => {
@@ -457,11 +471,12 @@ export default function AttendanceScreen() {
                   key={index} 
                   style={[
                     styles.calendarDay,
-                    isManagement && styles.calendarDayClickable
+                    isManagement && styles.calendarDayClickable,
+                    isSelectedDate && styles.selectedCalendarDay
                   ]}
                   onPress={() => handleCalendarDayPress(day)}
                 >
-                  <Text style={styles.dayNumber}>{day}</Text>
+                  <Text style={[styles.dayNumber, isSelectedDate && styles.selectedDayNumber]}>{day}</Text>
                   {/* Display status indicator if a status is determined */}
                   {displayStatus && (
                     <View style={[styles.statusIndicator, { backgroundColor: getIndicatorColor(displayStatus) }]}>
@@ -727,10 +742,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     borderRadius: 8,
   },
+  selectedCalendarDay: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+  },
   dayNumber: {
     fontSize: 14,
     fontWeight: '500',
     color: '#1f2937',
+  },
+  selectedDayNumber: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
   emptyDay: {
     width: '14.28%',

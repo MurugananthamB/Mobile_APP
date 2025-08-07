@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, CheckCircle, Clock, AlertCircle, X, Filter, Search, Eye, EyeOff } from 'lucide-react-native';
+import { Bell, CheckCircle, Clock, AlertCircle, X, Filter, Search, Eye, EyeOff, Calendar, ArrowRight } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import ApiService from '../services/api';
@@ -122,13 +122,54 @@ export default function NotificationsScreen() {
   const getNotificationColor = (type) => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return '#10b981';
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
+        return '#f59e0b';
       case 'error':
-        return 'bg-red-50 border-red-200';
+        return '#ef4444';
       default:
-        return 'bg-blue-50 border-blue-200';
+        return '#3b82f6';
+    }
+  };
+
+  const getNotificationBgColor = (type) => {
+    switch (type) {
+      case 'success':
+        return '#ecfdf5';
+      case 'warning':
+        return '#fffbeb';
+      case 'error':
+        return '#fef2f2';
+      default:
+        return '#eff6ff';
+    }
+  };
+
+  const handleNotificationPress = (notification) => {
+    // Extract date from notification message or title
+    const dateMatch = notification.message.match(/(\d{1,2}\/\d{1,2}\/\d{4})|(\d{4}-\d{2}-\d{2})/);
+    
+    if (dateMatch) {
+      let dateStr = dateMatch[0];
+      
+      // Convert date format if needed
+      if (dateStr.includes('/')) {
+        const [day, month, year] = dateStr.split('/');
+        dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      
+      // Navigate to attendance page with the specific date
+      router.push({
+        pathname: '/(tabs)/attendance',
+        params: { selectedDate: dateStr }
+      });
+    } else {
+      // If no date found, show notification details
+      Alert.alert(
+        notification.title,
+        notification.message,
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -143,10 +184,10 @@ export default function NotificationsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#1e40af" />
-          <Text className="text-gray-500 mt-4">Loading notifications...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 16 }}>Loading notifications...</Text>
         </View>
       </SafeAreaView>
     );
@@ -154,16 +195,21 @@ export default function NotificationsScreen() {
 
   if (error && !notifications.length) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-1 justify-center items-center px-4">
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
           <AlertCircle size={48} color="#ef4444" />
-          <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">Error Loading Notifications</Text>
-          <Text className="text-gray-500 text-center mb-6">{error}</Text>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1f2937', marginTop: 16, marginBottom: 8 }}>Error Loading Notifications</Text>
+          <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', marginBottom: 24 }}>{error}</Text>
           <TouchableOpacity 
-            className="bg-blue-500 px-6 py-3 rounded-lg"
+            style={{
+              backgroundColor: '#3b82f6',
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              borderRadius: 8,
+            }}
             onPress={() => loadNotifications()}
           >
-            <Text className="text-white font-semibold">Try Again</Text>
+            <Text style={{ color: 'white', fontWeight: '600' }}>Try Again</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -171,9 +217,9 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
       <ScrollView 
-        className="flex-1" 
+        style={{ flex: 1 }} 
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -181,26 +227,40 @@ export default function NotificationsScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={['#1e40af', '#3b82f6']}
+          colors={['#667eea', '#764ba2']}
           style={{ padding: 24 }}
         >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1">
-              <Text className="text-2xl font-bold text-white">Notifications</Text>
-              <Text className="text-white opacity-90">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 28, fontWeight: 'bold', color: 'white' }}>Notifications</Text>
+              <Text style={{ color: 'white', opacity: 0.9, marginTop: 4 }}>
                 {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
               </Text>
             </View>
-            <View className="flex-row space-x-2">
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity 
-                className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                style={{
+                  width: 40,
+                  height: 40,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 20,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
                 onPress={() => setShowUnreadOnly(!showUnreadOnly)}
               >
                 {showUnreadOnly ? <EyeOff size={20} color="#ffffff" /> : <Eye size={20} color="#ffffff" />}
               </TouchableOpacity>
               {unreadCount > 0 && (
                 <TouchableOpacity 
-                  className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    borderRadius: 20,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
                   onPress={markAllAsRead}
                 >
                   <CheckCircle size={20} color="#ffffff" />
@@ -211,11 +271,25 @@ export default function NotificationsScreen() {
         </LinearGradient>
 
         {/* Search Bar */}
-        <View className="p-4">
-          <View className="flex-row items-center bg-white rounded-xl px-3 border border-gray-200">
+        <View style={{ padding: 16 }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'white',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderWidth: 1,
+            borderColor: '#e5e7eb',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 2,
+          }}>
             <Search size={18} color="#6b7280" style={{ marginRight: 12 }} />
             <TextInput
-              className="flex-1 py-3 text-base text-gray-900"
+              style={{ flex: 1, fontSize: 16, color: '#1f2937' }}
               placeholder="Search notifications..."
               placeholderTextColor="#9ca3af"
               value={searchQuery}
@@ -225,14 +299,24 @@ export default function NotificationsScreen() {
         </View>
 
         {/* Notifications List */}
-        <View className="px-4 pb-4">
+        <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
           {filteredNotifications.length === 0 ? (
-            <View className="bg-white rounded-xl p-8 items-center">
+            <View style={{
+              backgroundColor: 'white',
+              borderRadius: 16,
+              padding: 32,
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}>
               <Bell size={48} color="#9ca3af" />
-              <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">
+              <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1f2937', marginTop: 16, marginBottom: 8 }}>
                 {searchQuery ? 'No matching notifications' : 'No notifications'}
               </Text>
-              <Text className="text-gray-500 text-center">
+              <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center' }}>
                 {searchQuery 
                   ? 'Try adjusting your search terms'
                   : 'You\'re all caught up! Check back later for new updates.'
@@ -240,57 +324,69 @@ export default function NotificationsScreen() {
               </Text>
             </View>
           ) : (
-            filteredNotifications.map((notification) => (
-              <View 
-                key={notification.id} 
+            filteredNotifications.map((notification, index) => (
+              <TouchableOpacity
+                key={notification.id}
                 style={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: 12,
-                  padding: 16,
+                  backgroundColor: getNotificationBgColor(notification.type),
+                  borderRadius: 16,
+                  padding: 20,
                   marginBottom: 12,
                   borderWidth: 1,
-                  borderColor: getNotificationColor(notification.type).includes('green') ? '#10b981' :
-                               getNotificationColor(notification.type).includes('blue') ? '#3b82f6' :
-                               getNotificationColor(notification.type).includes('yellow') ? '#f59e0b' :
-                               getNotificationColor(notification.type).includes('red') ? '#ef4444' : '#e5e7eb',
+                  borderColor: getNotificationColor(notification.type) + '20',
                   borderLeftWidth: !notification.isRead ? 4 : 1,
-                  borderLeftColor: !notification.isRead ? '#3b82f6' : 'transparent'
+                  borderLeftColor: !notification.isRead ? getNotificationColor(notification.type) : 'transparent',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.05,
+                  shadowRadius: 4,
+                  elevation: 2,
                 }}
+                onPress={() => handleNotificationPress(notification)}
               >
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-row items-start flex-1">
-                    <View className="mt-1 mr-3">
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
+                    <View style={{ marginTop: 2, marginRight: 12 }}>
                       {getNotificationIcon(notification.type)}
                     </View>
-                    <View className="flex-1">
-                      <Text className="text-lg font-semibold text-gray-900 mb-1">
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '600', color: '#1f2937', marginBottom: 6 }}>
                         {notification.title}
                       </Text>
-                      <Text className="text-gray-600 mb-2">
+                      <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 12, lineHeight: 20 }}>
                         {notification.message}
                       </Text>
-                      <View className="flex-row items-center">
-                        <Clock size={14} color="#6b7280" />
-                        <Text className="text-sm text-gray-500 ml-1">
-                          {new Date(notification.createdAt).toLocaleDateString()}
-                        </Text>
-                        {!notification.isRead && (
-                          <View className="ml-2 w-2 h-2 bg-blue-500 rounded-full" />
-                        )}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Clock size={14} color="#6b7280" />
+                          <Text style={{ fontSize: 12, color: '#6b7280', marginLeft: 4 }}>
+                            {new Date(notification.createdAt).toLocaleDateString()}
+                          </Text>
+                          {!notification.isRead && (
+                            <View style={{
+                              width: 8,
+                              height: 8,
+                              backgroundColor: getNotificationColor(notification.type),
+                              borderRadius: 4,
+                              marginLeft: 8,
+                            }} />
+                          )}
+                        </View>
+                        <ArrowRight size={16} color={getNotificationColor(notification.type)} />
                       </View>
                     </View>
                   </View>
-                  <View className="flex-row space-x-2">
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
                     {!notification.isRead && (
                       <TouchableOpacity 
-                        className="p-2"
+                        style={{ padding: 4 }}
                         onPress={() => markAsRead(notification.id)}
                       >
                         <CheckCircle size={16} color="#10b981" />
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity 
-                      className="p-2"
+                      style={{ padding: 4 }}
                       onPress={() => {
                         Alert.alert(
                           'Delete Notification',
@@ -310,7 +406,7 @@ export default function NotificationsScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>

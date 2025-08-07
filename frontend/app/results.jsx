@@ -1,202 +1,290 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
-import { FileText, TrendingUp, Award, BarChart3, ChevronDown } from 'lucide-react-native';
-import { tw } from '../utils/tailwind';
+import { LinearGradient } from 'expo-linear-gradient';
+import { TrendingUp, Award, BookOpen, Calendar, Filter, Search, ChevronRight, Star, AlertCircle } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import ApiService from '../services/api';
 
 export default function ResultsScreen() {
-  const [selectedTerm, setSelectedTerm] = useState('midterm');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
-  const resultsData = {
-    currentCGPA: 8.5,
-    totalSubjects: 8,
-    rank: 5,
-    totalStudents: 45,
-    terms: {
-      midterm: {
-        name: 'Mid-Term Examination',
-        totalMarks: 800,
-        obtainedMarks: 680,
-        percentage: 85,
-        grade: 'A',
-        subjects: [
-          { name: 'Mathematics', maxMarks: 100, obtainedMarks: 88, grade: 'A+', teacher: 'Mr. Smith' },
-          { name: 'English', maxMarks: 100, obtainedMarks: 82, grade: 'A', teacher: 'Ms. Johnson' },
-          { name: 'Physics', maxMarks: 100, obtainedMarks: 90, grade: 'A+', teacher: 'Dr. Brown' },
-          { name: 'Chemistry', maxMarks: 100, obtainedMarks: 85, grade: 'A', teacher: 'Ms. Davis' },
-          { name: 'Biology', maxMarks: 100, obtainedMarks: 78, grade: 'B+', teacher: 'Dr. Anderson' },
-          { name: 'History', maxMarks: 100, obtainedMarks: 75, grade: 'B+', teacher: 'Mr. Wilson' },
-          { name: 'Geography', maxMarks: 100, obtainedMarks: 80, grade: 'A', teacher: 'Ms. Clark' },
-          { name: 'Computer Science', maxMarks: 100, obtainedMarks: 92, grade: 'A+', teacher: 'Mr. Taylor' },
-        ]
-      },
-      annual: {
-        name: 'Annual Examination',
-        totalMarks: 800,
-        obtainedMarks: 720,
-        percentage: 90,
-        grade: 'A+',
-        subjects: [
-          { name: 'Mathematics', maxMarks: 100, obtainedMarks: 95, grade: 'A+', teacher: 'Mr. Smith' },
-          { name: 'English', maxMarks: 100, obtainedMarks: 88, grade: 'A+', teacher: 'Ms. Johnson' },
-          { name: 'Physics', maxMarks: 100, obtainedMarks: 92, grade: 'A+', teacher: 'Dr. Brown' },
-          { name: 'Chemistry', maxMarks: 100, obtainedMarks: 89, grade: 'A+', teacher: 'Ms. Davis' },
-          { name: 'Biology', maxMarks: 100, obtainedMarks: 85, grade: 'A', teacher: 'Dr. Anderson' },
-          { name: 'History', maxMarks: 100, obtainedMarks: 82, grade: 'A', teacher: 'Mr. Wilson' },
-          { name: 'Geography', maxMarks: 100, obtainedMarks: 87, grade: 'A+', teacher: 'Ms. Clark' },
-          { name: 'Computer Science', maxMarks: 100, obtainedMarks: 97, grade: 'A+', teacher: 'Mr. Taylor' },
-        ]
+  useEffect(() => {
+    loadResults();
+  }, []);
+
+  const loadResults = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
+      setError(null);
+
+      const response = await ApiService.getResults();
+      
+      if (response.success) {
+        setResults(response.data);
+      } else {
+        setError(response.message || 'Failed to load results');
+      }
+    } catch (error) {
+      console.error('❌ Error loading results:', error);
+      setError('Failed to load results. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    loadResults(true);
   };
 
   const getGradeColor = (grade) => {
-    switch (grade) {
-      case 'A+': return '#10b981';
-      case 'A': return '#3b82f6';
-      case 'B+': return '#f59e0b';
-      case 'B': return '#f97316';
-      case 'C': return '#ef4444';
-      default: return '#6b7280';
+    switch (grade?.toUpperCase()) {
+      case 'A':
+      case 'A+':
+        return 'text-green-600 bg-green-100';
+      case 'B':
+      case 'B+':
+        return 'text-blue-600 bg-blue-100';
+      case 'C':
+      case 'C+':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'D':
+        return 'text-orange-600 bg-orange-100';
+      case 'F':
+        return 'text-red-600 bg-red-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
-  const getPercentageColor = (percentage) => {
-    if (percentage >= 90) return '#10b981';
-    if (percentage >= 80) return '#3b82f6';
-    if (percentage >= 70) return '#f59e0b';
-    if (percentage >= 60) return '#f97316';
-    return '#ef4444';
+  const getPerformanceColor = (percentage) => {
+    if (percentage >= 90) return 'text-green-600';
+    if (percentage >= 80) return 'text-blue-600';
+    if (percentage >= 70) return 'text-yellow-600';
+    if (percentage >= 60) return 'text-orange-600';
+    return 'text-red-600';
   };
 
-  const calculatePercentage = (obtained, max) => {
-    return ((obtained / max) * 100).toFixed(1);
+  const getPerformanceIcon = (percentage) => {
+    if (percentage >= 90) return <Star size={16} color="#10b981" />;
+    if (percentage >= 80) return <TrendingUp size={16} color="#3b82f6" />;
+    if (percentage >= 70) return <Award size={16} color="#f59e0b" />;
+    return <AlertCircle size={16} color="#ef4444" />;
   };
 
-  const currentTermData = resultsData.terms[selectedTerm];
+  const filterOptions = [
+    { label: 'All Results', value: 'all' },
+    { label: 'Exams', value: 'exam' },
+    { label: 'Assignments', value: 'assignment' },
+    { label: 'Projects', value: 'project' },
+    { label: 'Quizzes', value: 'quiz' },
+  ];
+
+  const filteredResults = results.filter(result => {
+    const matchesSearch = result.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         result.examName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = selectedFilter === 'all' || result.type === selectedFilter;
+    return matchesSearch && matchesFilter;
+  });
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#1e40af" />
+          <Text className="text-gray-500 mt-4">Loading results...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !results.length) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center px-4">
+          <AlertCircle size={48} color="#ef4444" />
+          <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">Error Loading Results</Text>
+          <Text className="text-gray-500 text-center mb-6">{error}</Text>
+          <TouchableOpacity 
+            className="bg-blue-500 px-6 py-3 rounded-lg"
+            onPress={() => loadResults()}
+          >
+            <Text className="text-white font-semibold">Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={tw("flex-1 bg-gray-50")}>
-      <ScrollView style={tw("flex-1")} showsVerticalScrollIndicator={false}>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         {/* Header */}
-        <View style={tw("bg-white p-4 border-b border-gray-200")}>
-          <View style={tw("flex-row items-center")}>
-            <FileText size={24} color="#1e40af" />
-            <Text style={tw("text-xl font-bold text-gray-900 ml-2")}>Results</Text>
+        <LinearGradient
+          colors={['#1e40af', '#3b82f6']}
+          style={{ padding: 24 }}
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-2xl font-bold text-white">Academic Results</Text>
+              <Text className="text-white opacity-90">Track your academic performance</Text>
+            </View>
+            <View className="flex-row space-x-2">
+              <TouchableOpacity 
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                onPress={() => Alert.alert('Filter', 'Filter functionality coming soon')}
+              >
+                <Filter size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Search Bar */}
+        <View className="p-4">
+          <View className="flex-row items-center bg-white rounded-xl px-3 border border-gray-200">
+            <Search size={18} color="#6b7280" style={{ marginRight: 12 }} />
+            <TextInput
+              className="flex-1 py-3 text-base text-gray-900"
+              placeholder="Search results..."
+              placeholderTextColor="#9ca3af"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
         </View>
 
-        {/* Overall Performance */}
-        <View style={tw("p-4")}>
-          <View style={tw("bg-white rounded-xl p-6 shadow-sm")}>
-            <View style={tw("flex-row items-center justify-between mb-4")}>
-              <Text style={tw("text-lg font-bold text-gray-900")}>Overall Performance</Text>
-              <Award size={20} color="#f59e0b" />
-            </View>
-            <View style={tw("flex-row justify-between")}>
-              <View style={tw("items-center")}>
-                <Text style={tw("text-3xl font-bold text-blue-600")}>{resultsData.currentCGPA}</Text>
-                <Text style={tw("text-sm text-gray-500")}>CGPA</Text>
-              </View>
-              <View style={tw("items-center")}>
-                <Text style={tw("text-3xl font-bold text-green-600")}>{resultsData.totalSubjects}</Text>
-                <Text style={tw("text-sm text-gray-500")}>Subjects</Text>
-              </View>
-              <View style={tw("items-center")}>
-                <Text style={tw("text-3xl font-bold text-purple-600")}>{resultsData.rank}</Text>
-                <Text style={tw("text-sm text-gray-500")}>Rank</Text>
-              </View>
-              <View style={tw("items-center")}>
-                <Text style={tw("text-3xl font-bold text-orange-600")}>{resultsData.totalStudents}</Text>
-                <Text style={tw("text-sm text-gray-500")}>Total</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Term Selection */}
-        <View style={tw("px-4 mb-4")}>
-          <View style={tw("bg-white rounded-xl p-4 shadow-sm")}>
-            <Text style={tw("text-lg font-bold text-gray-900 mb-3")}>Select Term</Text>
-            <View style={tw("flex-row space-x-2")}>
-              {Object.keys(resultsData.terms).map((term) => (
-                <TouchableOpacity
-                  key={term}
-                  onPress={() => setSelectedTerm(term)}
-                  style={tw(`flex-1 py-3 px-4 rounded-lg ${selectedTerm === term ? 'bg-blue-500' : 'bg-gray-100'}`)}
-                >
-                  <Text style={tw(`text-center font-medium ${selectedTerm === term ? 'text-white' : 'text-gray-700'}`)}>
-                    {term.charAt(0).toUpperCase() + term.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Term Results */}
-        <View style={tw("px-4 mb-4")}>
-          <View style={tw("bg-white rounded-xl p-6 shadow-sm")}>
-            <View style={tw("flex-row items-center justify-between mb-4")}>
-              <Text style={tw("text-lg font-bold text-gray-900")}>{currentTermData.name}</Text>
-              <View style={tw("flex-row items-center")}>
-                <BarChart3 size={20} color="#3b82f6" />
-                <Text style={tw("text-sm text-gray-500 ml-1")}>Performance</Text>
-              </View>
-            </View>
-            
-            {/* Term Summary */}
-            <View style={tw("bg-blue-50 rounded-lg p-4 mb-6")}>
-              <View style={tw("flex-row justify-between items-center mb-2")}>
-                <Text style={tw("text-sm font-medium text-gray-600")}>Total Marks</Text>
-                <Text style={tw("text-sm font-medium text-gray-600")}>{currentTermData.obtainedMarks}/{currentTermData.totalMarks}</Text>
-              </View>
-              <View style={tw("flex-row justify-between items-center mb-2")}>
-                <Text style={tw("text-sm font-medium text-gray-600")}>Percentage</Text>
-                <Text style={tw("text-sm font-bold")} style={{ color: getPercentageColor(currentTermData.percentage) }}>
-                  {currentTermData.percentage}%
+        {/* Filter Tabs */}
+        <View className="px-4 mb-4">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+            {filterOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => setSelectedFilter(option.value)}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  marginRight: 8,
+                  backgroundColor: selectedFilter === option.value ? '#3b82f6' : '#ffffff',
+                  borderWidth: selectedFilter === option.value ? 0 : 1,
+                  borderColor: selectedFilter === option.value ? 'transparent' : '#e5e7eb'
+                }}
+              >
+                <Text style={{
+                  fontWeight: '500',
+                  color: selectedFilter === option.value ? '#ffffff' : '#4b5563'
+                }}>
+                  {option.label}
                 </Text>
-              </View>
-              <View style={tw("flex-row justify-between items-center")}>
-                <Text style={tw("text-sm font-medium text-gray-600")}>Grade</Text>
-                <Text style={tw("text-sm font-bold")} style={{ color: getGradeColor(currentTermData.grade) }}>
-                  {currentTermData.grade}
-                </Text>
-              </View>
-            </View>
-
-            {/* Subject-wise Results */}
-            <Text style={tw("text-lg font-bold text-gray-900 mb-4")}>Subject-wise Results</Text>
-            {currentTermData.subjects.map((subject, index) => (
-              <View key={index} style={tw("border-b border-gray-100 py-3 last:border-b-0")}>
-                <View style={tw("flex-row justify-between items-center mb-2")}>
-                  <Text style={tw("text-base font-medium text-gray-900")}>{subject.name}</Text>
-                  <Text style={tw("text-sm font-bold")} style={{ color: getGradeColor(subject.grade) }}>
-                    {subject.grade}
-                  </Text>
-                </View>
-                <View style={tw("flex-row justify-between items-center")}>
-                  <Text style={tw("text-sm text-gray-500")}>{subject.teacher}</Text>
-                  <Text style={tw("text-sm text-gray-600")}>
-                    {subject.obtainedMarks}/{subject.maxMarks} ({calculatePercentage(subject.obtainedMarks, subject.maxMarks)}%)
-                  </Text>
-                </View>
-              </View>
+              </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
-        {/* Performance Chart Placeholder */}
-        <View style={tw("px-4 mb-6")}>
-          <View style={tw("bg-white rounded-xl p-6 shadow-sm")}>
-            <View style={tw("flex-row items-center justify-between mb-4")}>
-              <Text style={tw("text-lg font-bold text-gray-900")}>Performance Trend</Text>
-              <TrendingUp size={20} color="#10b981" />
+        {/* Results List */}
+        <View className="px-4 pb-4">
+          {filteredResults.length === 0 ? (
+            <View className="bg-white rounded-xl p-8 items-center">
+              <BookOpen size={48} color="#9ca3af" />
+              <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">
+                {searchQuery ? 'No matching results' : 'No results available'}
+              </Text>
+              <Text className="text-gray-500 text-center">
+                {searchQuery 
+                  ? 'Try adjusting your search terms'
+                  : 'Your academic results will appear here once they are published.'
+                }
+              </Text>
             </View>
-            <View style={tw("h-32 bg-gray-100 rounded-lg items-center justify-center")}>
-              <Text style={tw("text-gray-500")}>Chart visualization coming soon</Text>
-            </View>
-          </View>
+          ) : (
+            filteredResults.map((result) => (
+              <View 
+                key={result.id} 
+                className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100"
+              >
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1">
+                    <View className="flex-row items-center mb-2">
+                      <BookOpen size={16} color="#3b82f6" />
+                      <Text className="text-lg font-semibold text-gray-900 ml-2">
+                        {result.subject}
+                      </Text>
+                    </View>
+                    
+                    <Text className="text-gray-600 mb-3">{result.examName}</Text>
+                    
+                    <View className="flex-row items-center justify-between mb-3">
+                      <View className="flex-row items-center">
+                        <Calendar size={14} color="#6b7280" />
+                        <Text className="text-sm text-gray-500 ml-1">
+                          {new Date(result.examDate).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 20,
+                        backgroundColor: getGradeColor(result.grade).includes('green') ? '#dcfce7' : 
+                                       getGradeColor(result.grade).includes('blue') ? '#dbeafe' :
+                                       getGradeColor(result.grade).includes('yellow') ? '#fef3c7' :
+                                       getGradeColor(result.grade).includes('orange') ? '#fed7aa' :
+                                       getGradeColor(result.grade).includes('red') ? '#fee2e2' : '#f3f4f6'
+                      }}>
+                        <Text style={{
+                          fontSize: 14,
+                          fontWeight: '600',
+                          color: getGradeColor(result.grade).includes('green') ? '#059669' :
+                                 getGradeColor(result.grade).includes('blue') ? '#2563eb' :
+                                 getGradeColor(result.grade).includes('yellow') ? '#d97706' :
+                                 getGradeColor(result.grade).includes('orange') ? '#ea580c' :
+                                 getGradeColor(result.grade).includes('red') ? '#dc2626' : '#4b5563'
+                        }}>{result.grade}</Text>
+                      </View>
+                    </View>
+                    
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center">
+                        {getPerformanceIcon(result.percentage)}
+                                                 <Text style={{
+                           fontSize: 14,
+                           fontWeight: '600',
+                           marginLeft: 4,
+                           color: getPerformanceColor(result.percentage).includes('green') ? '#059669' :
+                                  getPerformanceColor(result.percentage).includes('blue') ? '#2563eb' :
+                                  getPerformanceColor(result.percentage).includes('yellow') ? '#d97706' :
+                                  getPerformanceColor(result.percentage).includes('orange') ? '#ea580c' : '#dc2626'
+                         }}>
+                           {result.percentage}%
+                         </Text>
+                      </View>
+                      <View className="flex-row items-center">
+                        <Text className="text-sm text-gray-500 mr-2">
+                          {result.marksObtained}/{result.totalMarks}
+                        </Text>
+                        <ChevronRight size={16} color="#9ca3af" />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

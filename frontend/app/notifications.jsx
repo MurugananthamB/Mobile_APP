@@ -1,264 +1,319 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-  ActivityIndicator
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Bell, ArrowLeft, Check, ChevronRight } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Bell, CheckCircle, Clock, AlertCircle, X, Filter, Search, Eye, EyeOff } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import { router } from 'expo-router';
 import ApiService from '../services/api';
-import { tw } from '../utils/tailwind';
 
 export default function NotificationsScreen() {
-  const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [filter, setFilter] = useState('all'); // all, unread, read
+  const [error, setError] = useState(null);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchNotifications();
-    fetchUnreadCount();
+    loadNotifications();
   }, []);
 
-  const fetchNotifications = async () => {
+  const loadNotifications = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
       const response = await ApiService.getNotifications();
+      
       if (response.success) {
         setNotifications(response.data);
+      } else {
+        setError(response.message || 'Failed to load notifications');
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      Alert.alert('Error', 'Failed to load notifications');
+      console.error('❌ Error loading notifications:', error);
+      setError('Failed to load notifications. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const fetchUnreadCount = async () => {
-    try {
-      const response = await ApiService.getUnreadNotificationCount();
-      if (response.success) {
-        setUnreadCount(response.data.count);
-      }
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([fetchNotifications(), fetchUnreadCount()]);
-    setRefreshing(false);
+  const handleRefresh = () => {
+    loadNotifications(true);
   };
 
   const markAsRead = async (notificationId) => {
     try {
       const response = await ApiService.markNotificationAsRead(notificationId);
+      
       if (response.success) {
-        // Update local state
+        // Update the notification in the local state
         setNotifications(prev => 
           prev.map(notification => 
-            notification._id === notificationId 
+            notification.id === notificationId 
               ? { ...notification, isRead: true }
               : notification
           )
         );
-        fetchUnreadCount(); // Refresh unread count
+      } else {
+        Alert.alert('Error', 'Failed to mark notification as read');
       }
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('❌ Error marking notification as read:', error);
+      Alert.alert('Error', 'Failed to mark notification as read');
     }
   };
 
   const markAllAsRead = async () => {
     try {
       const response = await ApiService.markAllNotificationsAsRead();
+      
       if (response.success) {
-        // Update local state
+        // Update all notifications in the local state
         setNotifications(prev => 
           prev.map(notification => ({ ...notification, isRead: true }))
         );
-        setUnreadCount(0);
         Alert.alert('Success', 'All notifications marked as read');
+      } else {
+        Alert.alert('Error', 'Failed to mark all notifications as read');
       }
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('❌ Error marking all notifications as read:', error);
       Alert.alert('Error', 'Failed to mark all notifications as read');
     }
   };
 
-  const handleNotificationPress = (notification) => {
-    // Mark as read if not already read
-    if (!notification.isRead) {
-      markAsRead(notification._id);
-    }
-    
-    // Handle navigation based on notification type
-    if (notification.type === 'attendance') {
-      router.push('/attendance');
-    } else if (notification.type === 'homework') {
-      router.push('/homework');
-    } else if (notification.type === 'results') {
-      router.push('/results');
-    } else if (notification.type === 'events') {
-      router.push('/events');
+  const deleteNotification = async (notificationId) => {
+    try {
+      const response = await ApiService.deleteNotification(notificationId);
+      
+      if (response.success) {
+        // Remove the notification from the local state
+        setNotifications(prev => 
+          prev.filter(notification => notification.id !== notificationId)
+        );
+      } else {
+        Alert.alert('Error', 'Failed to delete notification');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete notification');
     }
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'attendance':
-        return '📊';
-      case 'homework':
-        return '📚';
-      case 'results':
-        return '📈';
-      case 'events':
-        return '🎉';
-      case 'general':
-        return '📢';
+      case 'success':
+        return <CheckCircle size={20} color="#10b981" />;
+      case 'warning':
+        return <AlertCircle size={20} color="#f59e0b" />;
+      case 'error':
+        return <AlertCircle size={20} color="#ef4444" />;
       default:
-        return '🔔';
+        return <Bell size={20} color="#3b82f6" />;
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 border-red-300';
-      case 'medium':
-        return 'bg-yellow-100 border-yellow-300';
-      case 'low':
-        return 'bg-green-100 border-green-300';
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'success':
+        return 'bg-green-50 border-green-200';
+      case 'warning':
+        return 'bg-yellow-50 border-yellow-200';
+      case 'error':
+        return 'bg-red-50 border-red-200';
       default:
-        return 'bg-gray-100 border-gray-300';
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) {
-      return 'Today';
-    } else if (diffDays === 2) {
-      return 'Yesterday';
-    } else if (diffDays <= 7) {
-      return `${diffDays - 1} days ago`;
-    } else {
-      return date.toLocaleDateString();
+        return 'bg-blue-50 border-blue-200';
     }
   };
 
   const filteredNotifications = notifications.filter(notification => {
-    if (filter === 'unread') return !notification.isRead;
-    if (filter === 'read') return notification.isRead;
-    return true;
+    const matchesSearch = notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         notification.message.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = !showUnreadOnly || !notification.isRead;
+    return matchesSearch && matchesFilter;
   });
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   if (loading) {
     return (
-      <SafeAreaView style={tw("flex-1 bg-gray-50")}>
-        <View style={tw("flex-1 justify-center items-center")}>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#1e40af" />
-          <Text style={tw("mt-2 text-gray-500")}>Loading notifications...</Text>
+          <Text className="text-gray-500 mt-4">Loading notifications...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !notifications.length) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 justify-center items-center px-4">
+          <AlertCircle size={48} color="#ef4444" />
+          <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">Error Loading Notifications</Text>
+          <Text className="text-gray-500 text-center mb-6">{error}</Text>
+          <TouchableOpacity 
+            className="bg-blue-500 px-6 py-3 rounded-lg"
+            onPress={() => loadNotifications()}
+          >
+            <Text className="text-white font-semibold">Try Again</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={tw("flex-1 bg-gray-50")}>
-      {/* Header */}
-      <View style={tw("flex-row items-center justify-between p-4 bg-white border-b border-gray-200")}>
-        <TouchableOpacity onPress={() => router.back()} style={tw("p-2")}>
-          <ArrowLeft size={24} color="#1f2937" />
-        </TouchableOpacity>
-        <Text style={tw("text-xl font-bold text-gray-900")}>Notifications</Text>
-        <TouchableOpacity onPress={markAllAsRead} style={tw("p-2")}>
-          <Check size={24} color="#1e40af" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={tw("flex-row bg-white border-b border-gray-200")}>
-        {[
-          { key: 'all', label: 'All' },
-          { key: 'unread', label: `Unread (${unreadCount})` },
-          { key: 'read', label: 'Read' }
-        ].map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => setFilter(tab.key)}
-            style={tw(`flex-1 py-3 px-4 ${filter === tab.key ? 'border-b-2 border-blue-500' : ''}`)}
-          >
-            <Text style={tw(`text-center font-medium ${filter === tab.key ? 'text-blue-600' : 'text-gray-500'}`)}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Notifications List */}
-      <ScrollView
-        style={tw("flex-1")}
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        {filteredNotifications.length === 0 ? (
-          <View style={tw("flex-1 justify-center items-center py-20")}>
-            <Bell size={48} color="#9ca3af" />
-            <Text style={tw("text-lg font-medium text-gray-500 mt-4")}>No notifications</Text>
-            <Text style={tw("text-sm text-gray-400 mt-2")}>You're all caught up!</Text>
+        {/* Header */}
+        <LinearGradient
+          colors={['#1e40af', '#3b82f6']}
+          style={{ padding: 24 }}
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-2xl font-bold text-white">Notifications</Text>
+              <Text className="text-white opacity-90">
+                {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+              </Text>
+            </View>
+            <View className="flex-row space-x-2">
+              <TouchableOpacity 
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                onPress={() => setShowUnreadOnly(!showUnreadOnly)}
+              >
+                {showUnreadOnly ? <EyeOff size={20} color="#ffffff" /> : <Eye size={20} color="#ffffff" />}
+              </TouchableOpacity>
+              {unreadCount > 0 && (
+                <TouchableOpacity 
+                  className="w-10 h-10 bg-white bg-opacity-20 rounded-full items-center justify-center"
+                  onPress={markAllAsRead}
+                >
+                  <CheckCircle size={20} color="#ffffff" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        ) : (
-          filteredNotifications.map((notification) => (
-            <TouchableOpacity
-              key={notification._id}
-              onPress={() => handleNotificationPress(notification)}
-              style={tw(`p-4 border-b border-gray-100 ${!notification.isRead ? 'bg-blue-50' : 'bg-white'}`)}
-            >
-              <View style={tw("flex-row items-start")}>
-                <View style={tw(`w-12 h-12 rounded-full items-center justify-center mr-3 ${getPriorityColor(notification.priority)}`)}>
-                  <Text style={tw("text-xl")}>{getNotificationIcon(notification.type)}</Text>
-                </View>
-                
-                <View style={tw("flex-1")}>
-                  <View style={tw("flex-row items-center justify-between mb-1")}>
-                    <Text style={tw(`font-semibold text-base ${!notification.isRead ? 'text-gray-900' : 'text-gray-600'}`)}>
-                      {notification.title}
-                    </Text>
-                    {!notification.isRead && (
-                      <View style={tw("w-2 h-2 bg-blue-500 rounded-full")} />
-                    )}
+        </LinearGradient>
+
+        {/* Search Bar */}
+        <View className="p-4">
+          <View className="flex-row items-center bg-white rounded-xl px-3 border border-gray-200">
+            <Search size={18} color="#6b7280" style={{ marginRight: 12 }} />
+            <TextInput
+              className="flex-1 py-3 text-base text-gray-900"
+              placeholder="Search notifications..."
+              placeholderTextColor="#9ca3af"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        </View>
+
+        {/* Notifications List */}
+        <View className="px-4 pb-4">
+          {filteredNotifications.length === 0 ? (
+            <View className="bg-white rounded-xl p-8 items-center">
+              <Bell size={48} color="#9ca3af" />
+              <Text className="text-xl font-bold text-gray-900 mt-4 mb-2">
+                {searchQuery ? 'No matching notifications' : 'No notifications'}
+              </Text>
+              <Text className="text-gray-500 text-center">
+                {searchQuery 
+                  ? 'Try adjusting your search terms'
+                  : 'You\'re all caught up! Check back later for new updates.'
+                }
+              </Text>
+            </View>
+          ) : (
+            filteredNotifications.map((notification) => (
+              <View 
+                key={notification.id} 
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 12,
+                  borderWidth: 1,
+                  borderColor: getNotificationColor(notification.type).includes('green') ? '#10b981' :
+                               getNotificationColor(notification.type).includes('blue') ? '#3b82f6' :
+                               getNotificationColor(notification.type).includes('yellow') ? '#f59e0b' :
+                               getNotificationColor(notification.type).includes('red') ? '#ef4444' : '#e5e7eb',
+                  borderLeftWidth: !notification.isRead ? 4 : 1,
+                  borderLeftColor: !notification.isRead ? '#3b82f6' : 'transparent'
+                }}
+              >
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-row items-start flex-1">
+                    <View className="mt-1 mr-3">
+                      {getNotificationIcon(notification.type)}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-lg font-semibold text-gray-900 mb-1">
+                        {notification.title}
+                      </Text>
+                      <Text className="text-gray-600 mb-2">
+                        {notification.message}
+                      </Text>
+                      <View className="flex-row items-center">
+                        <Clock size={14} color="#6b7280" />
+                        <Text className="text-sm text-gray-500 ml-1">
+                          {new Date(notification.createdAt).toLocaleDateString()}
+                        </Text>
+                        {!notification.isRead && (
+                          <View className="ml-2 w-2 h-2 bg-blue-500 rounded-full" />
+                        )}
+                      </View>
+                    </View>
                   </View>
-                  
-                  <Text style={tw("text-sm text-gray-600 mb-2")} numberOfLines={2}>
-                    {notification.message}
-                  </Text>
-                  
-                  <View style={tw("flex-row items-center justify-between")}>
-                    <Text style={tw("text-xs text-gray-400")}>
-                      {formatDate(notification.createdAt)}
-                    </Text>
-                    <ChevronRight size={16} color="#9ca3af" />
+                  <View className="flex-row space-x-2">
+                    {!notification.isRead && (
+                      <TouchableOpacity 
+                        className="p-2"
+                        onPress={() => markAsRead(notification.id)}
+                      >
+                        <CheckCircle size={16} color="#10b981" />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity 
+                      className="p-2"
+                      onPress={() => {
+                        Alert.alert(
+                          'Delete Notification',
+                          'Are you sure you want to delete this notification?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { 
+                              text: 'Delete', 
+                              style: 'destructive',
+                              onPress: () => deleteNotification(notification.id)
+                            }
+                          ]
+                        );
+                      }}
+                    >
+                      <X size={16} color="#ef4444" />
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
-            </TouchableOpacity>
-          ))
-        )}
+            ))
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

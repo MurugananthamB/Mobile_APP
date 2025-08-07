@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,7 +6,9 @@ import { User, Lock, Eye, EyeOff, Sparkles } from 'lucide-react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/api';
-import { tw } from '../utils/tailwind';
+
+const { width } = Dimensions.get('window');
+const isWeb = width > 768;
 
 export default function LoginScreen() {
   const [studentId, setStudentId] = useState('');
@@ -82,147 +84,260 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={tw("flex-1")}>
+    <SafeAreaView style={{ flex: 1 }}>
       <LinearGradient
         colors={['#667eea', '#764ba2', '#f093fb']}
-        style={tw("flex-1")}
+        style={{ flex: 1 }}
       >
-        <View style={tw("flex-1 px-4 justify-center items-center")}>
-          <View style={tw("w-full max-w-sm")}>
-         
-            {/* Header Section */}
-            <View style={tw("items-center mb-8")}>
-              <View style={tw("relative")}>
-                <Image
-                  source={require('../assets/images/logo.jpeg')}
-                  style={tw("w-20 h-20 rounded-full")}
-                  resizeMode="cover"
-                />
-                <View style={tw("absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full items-center justify-center")}>
-                  <Sparkles size={12} color="#ffffff" />
-                </View>
+        <View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          paddingHorizontal: 20 
+        }}>
+          <View style={{ 
+            width: '100%', 
+            maxWidth: 400,
+            backgroundColor: 'white',
+            borderRadius: 20,
+            padding: 30,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.25,
+            shadowRadius: 20,
+            elevation: 10
+          }}>
+            {/* Header */}
+            <View style={{ alignItems: 'center', marginBottom: 30 }}>
+              <View style={{ 
+                width: 80, 
+                height: 80, 
+                borderRadius: 40,
+                backgroundColor: '#fbbf24',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15
+              }}>
+                <Text style={{ fontSize: 32, fontWeight: 'bold', color: 'white' }}>GB</Text>
               </View>
-              <Text style={tw("text-2xl font-bold text-white text-center mt-3")}>GBPS School App</Text>
-              <Text style={tw("text-white opacity-90 text-center mt-1 text-sm")}>Your Digital Learning Companion</Text>
-            </View>
-
-            {/* Login Form */}
-            <View style={tw("bg-white rounded-2xl p-6 shadow-lg")}>
-              <View style={tw("items-center mb-6")}>
-                <View style={tw("w-10 h-10 bg-blue-100 rounded-full items-center justify-center mb-3")}>
-                  <User size={20} color="#3b82f6" />
-                </View>
-                <Text style={tw("text-xl font-bold text-gray-900 text-center")}>Welcome Back</Text>
-                <Text style={tw("text-sm text-gray-500 text-center mt-1")}>Sign in to your account</Text>
-              </View>
-
-              {/* Username Input */}
-              <View style={tw("mb-4")}>
-                <Text style={tw("text-sm font-medium text-gray-700 mb-2")}>Student ID</Text>
-                <View style={tw("flex-row items-center bg-gray-50 rounded-xl px-3 border border-gray-200")}>
-                  <User size={18} color="#6b7280" style={tw("mr-3")} />
-                  <TextInput
-                    style={tw("flex-1 py-3 text-base text-gray-900")}
-                    placeholder="Enter your student ID"
-                    placeholderTextColor="#9ca3af"
-                    value={studentId}
-                    onChangeText={setStudentId}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isLoading}
-                  />
-                </View>
-              </View>
-
-              {/* Password Input */}
-              <View style={tw("mb-4")}>
-                <Text style={tw("text-sm font-medium text-gray-700 mb-2")}>Password</Text>
-                <View style={tw("flex-row items-center bg-gray-50 rounded-xl px-3 border border-gray-200")}>
-                  <Lock size={18} color="#6b7280" style={tw("mr-3")} />
-                  <TextInput
-                    style={tw("flex-1 py-3 text-base text-gray-900")}
-                    placeholder="Enter your password"
-                    placeholderTextColor="#9ca3af"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isLoading}
-                  />
-                  <TouchableOpacity 
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={tw("p-2")}
-                    disabled={isLoading}
-                  >
-                    {showPassword ? 
-                      <EyeOff size={18} color="#6b7280" /> : 
-                      <Eye size={18} color="#6b7280" />
-                    }
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Remember Me & Forgot Password */}
-              <View style={tw("flex-row justify-between items-center mb-6")}>
-                <TouchableOpacity 
-                  onPress={() => setRememberMe(!rememberMe)}
-                  style={tw("flex-row items-center")}
-                  disabled={isLoading}
-                >
-                  <View style={tw(`w-4 h-4 rounded border-2 mr-2 justify-center items-center ${rememberMe ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`)}>
-                    {rememberMe && <Text style={tw("text-white text-xs font-bold")}>✓</Text>}
-                  </View>
-                  <Text style={tw("text-sm text-gray-600")}>Remember me</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  onPress={handleForgotPassword}
-                  disabled={isLoading}
-                >
-                  <Text style={tw("text-sm text-blue-600 font-semibold")}>Forgot Password?</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Login Button */}
-              <TouchableOpacity 
-                style={tw(`rounded-xl overflow-hidden mb-4 ${isLoading ? 'opacity-70' : ''}`)}
-                onPress={handleLogin}
-                disabled={isLoading}
-              >
-                <LinearGradient
-                  colors={isLoading ? ['#9ca3af', '#6b7280'] : ['#667eea', '#764ba2']}
-                  style={tw("py-3 items-center")}
-                >
-                  {isLoading ? (
-                    <View style={tw("flex-row items-center")}>
-                      <ActivityIndicator size="small" color="#ffffff" />
-                      <Text style={tw("text-base font-bold text-white ml-3")}>Signing In...</Text>
-                    </View>
-                  ) : (
-                    <Text style={tw("text-base font-bold text-white")}>Sign In</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* Register Link */}
-              <TouchableOpacity 
-                style={tw("items-center")} 
-                onPress={() => router.push('/register')}
-                disabled={isLoading}
-              >
-                <Text style={tw("text-sm text-gray-500 text-center")}>
-                  Don't have an account? <Text style={tw("font-semibold text-blue-600")}>Sign Up</Text>
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Footer */}
-            <View style={tw("items-center mt-6")}>
-              <Text style={tw("text-white opacity-70 text-xs text-center")}>
-                Secure login powered by GBPS School System
+              <Text style={{ 
+                fontSize: 24, 
+                fontWeight: 'bold', 
+                color: '#1f2937',
+                textAlign: 'center',
+                marginBottom: 5
+              }}>
+                GBPS School App
+              </Text>
+              <Text style={{ 
+                fontSize: 14, 
+                color: '#6b7280',
+                textAlign: 'center'
+              }}>
+                Your Digital Learning Companion
               </Text>
             </View>
+
+            {/* Welcome Section */}
+            <View style={{ alignItems: 'center', marginBottom: 25 }}>
+              <View style={{ 
+                width: 50, 
+                height: 50, 
+                borderRadius: 25,
+                backgroundColor: '#3b82f6',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10
+              }}>
+                <User size={24} color="white" />
+              </View>
+              <Text style={{ 
+                fontSize: 20, 
+                fontWeight: 'bold', 
+                color: '#1f2937',
+                textAlign: 'center',
+                marginBottom: 5
+              }}>
+                Welcome Back
+              </Text>
+              <Text style={{ 
+                fontSize: 14, 
+                color: '#6b7280',
+                textAlign: 'center'
+              }}>
+                Sign in to your account
+              </Text>
+            </View>
+
+            {/* Student ID Input */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '600', 
+                color: '#374151',
+                marginBottom: 8
+              }}>
+                Student ID
+              </Text>
+              <View style={{ 
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#f9fafb',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: '#e5e7eb'
+              }}>
+                <User size={18} color="#6b7280" style={{ marginRight: 12 }} />
+                <TextInput
+                  style={{ 
+                    flex: 1,
+                    fontSize: 16,
+                    color: '#1f2937'
+                  }}
+                  placeholder="Enter your student ID"
+                  placeholderTextColor="#9ca3af"
+                  value={studentId}
+                  onChangeText={setStudentId}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+              </View>
+            </View>
+
+            {/* Password Input */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '600', 
+                color: '#374151',
+                marginBottom: 8
+              }}>
+                Password
+              </Text>
+              <View style={{ 
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#f9fafb',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: '#e5e7eb'
+              }}>
+                <Lock size={18} color="#6b7280" style={{ marginRight: 12 }} />
+                <TextInput
+                  style={{ 
+                    flex: 1,
+                    fontSize: 16,
+                    color: '#1f2937'
+                  }}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9ca3af"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={{ padding: 4 }}
+                  disabled={isLoading}
+                >
+                  {showPassword ? 
+                    <EyeOff size={18} color="#6b7280" /> : 
+                    <Eye size={18} color="#6b7280" />
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Remember Me & Forgot Password */}
+            <View style={{ 
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 25
+            }}>
+              <TouchableOpacity 
+                onPress={() => setRememberMe(!rememberMe)}
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+                disabled={isLoading}
+              >
+                <View style={{ 
+                  width: 18, 
+                  height: 18, 
+                  borderRadius: 4, 
+                  borderWidth: 2,
+                  marginRight: 8,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: rememberMe ? '#3b82f6' : 'transparent',
+                  borderColor: rememberMe ? '#3b82f6' : '#d1d5db'
+                }}>
+                  {rememberMe && <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✓</Text>}
+                </View>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>Remember me</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={handleForgotPassword}
+                disabled={isLoading}
+              >
+                <Text style={{ fontSize: 14, color: '#3b82f6', fontWeight: '600' }}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Login Button */}
+            <TouchableOpacity 
+              style={{ 
+                borderRadius: 12,
+                overflow: 'hidden',
+                marginBottom: 20,
+                opacity: isLoading ? 0.7 : 1
+              }}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              <LinearGradient
+                colors={isLoading ? ['#9ca3af', '#6b7280'] : ['#3b82f6', '#1d4ed8']}
+                style={{ 
+                  paddingVertical: 16,
+                  alignItems: 'center'
+                }}
+              >
+                {isLoading ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="white" />
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white', marginLeft: 12 }}>Signing In...</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>Sign In</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Register Link */}
+            <TouchableOpacity 
+              style={{ alignItems: 'center' }}
+              onPress={() => router.push('/register')}
+              disabled={isLoading}
+            >
+              <Text style={{ fontSize: 14, color: '#6b7280', textAlign: 'center' }}>
+                Don't have an account? <Text style={{ fontWeight: '600', color: '#3b82f6' }}>Sign Up</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Footer */}
+          <View style={{ alignItems: 'center', marginTop: 20 }}>
+            <Text style={{ fontSize: 12, color: 'white', opacity: 0.7, textAlign: 'center' }}>
+              Secure login powered by GBPS School System
+            </Text>
           </View>
         </View>
       </LinearGradient>

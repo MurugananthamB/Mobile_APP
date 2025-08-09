@@ -2,6 +2,7 @@
 
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs'); // Added missing import
 
 // Generate JWT Token
 const generateToken = (user) => {
@@ -13,129 +14,73 @@ const generateToken = (user) => {
 };
 
 // Register a new user
-exports.userRegister = async (req, res) => {
+exports.register = async (req, res) => {
   try {
-    const {
-      userid, 
-      name, 
-      email, 
-      password, 
+    const { userid, email, password, role, name, department, phone, address, hostelRoom, hostelBlock, hostelFloor, hostelWarden, hostelWardenPhone, hostelCheckInDate, hostelCheckOutDate, isHostelResident } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ $or: [{ email }, { userid }] });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'User already exists with this email or userid' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create user
+    const user = new User({
+      userid,
+      email,
+      password: hashedPassword,
       role,
-      qualification,
-      subject,
+      name,
       department,
-      position,
-      experience 
-    } = req.body;
-
-    console.log('Registration attempt:', { userid, email, role, name }); // Debug log
-
-    // Basic validation
-    if (!userid || !name || !email || !password || !role) {
-      return res.status(400).json({ 
-        message: 'Please provide all required fields: userid, name, email, password, and role' 
-      });
-    }
-
-    // Role-specific validation
-    if (role === 'staff') {
-      if (!qualification || !subject) {
-        return res.status(400).json({ 
-          message: 'Staff registration requires qualification and subject' 
-        });
-      }
-    } else if (role === 'management') {
-      if (!qualification || !department || !position || !experience) {
-        return res.status(400).json({ 
-          message: 'Management registration requires qualification, department, position, and experience' 
-        });
-      }
-    }
-
-    // Check if user already exists by userid or email
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { userid }] 
+      phone,
+      address,
+      hostelRoom,
+      hostelBlock,
+      hostelFloor,
+      hostelWarden,
+      hostelWardenPhone,
+      hostelCheckInDate,
+      hostelCheckOutDate,
+      isHostelResident
     });
 
-    if (existingUser) {
-      const conflictField = existingUser.email === email ? 'email' : 'userid';
-      console.log(`User already exists with ${conflictField}:`, existingUser[conflictField]);
-      return res.status(400).json({ 
-        message: `${conflictField.charAt(0).toUpperCase() + conflictField.slice(1)} already exists` 
-      });
-    }
+    await user.save();
 
-    // Create user object with role-specific fields
-    const userData = {
-      userid,
-      name,
-      email,
-      password,
-      role
-    };
-
-    // Add role-specific fields
-    if (role === 'staff') {
-      userData.qualification = qualification;
-      userData.subject = subject;
-    } else if (role === 'management') {
-      userData.qualification = qualification;
-      userData.department = department;
-      userData.position = position;
-      userData.experience = experience;
-    }
-
-    console.log('User data before creating newUser:', userData); // Debug log userData
-
-    // Create new user
-    const newUser = new User(userData);
-
-    // Save to database
-    const savedUser = await newUser.save();
-    console.log('User saved successfully:', savedUser._id);
-
-    // Generate the barcode (which also serves as roll number)
-    const generatedIdentifier = 'MAPH' + savedUser._id;
-    savedUser.barcode = generatedIdentifier;
-    // Assign the same value to rollNo as per the new requirement
-    await savedUser.save();
-
-    // Generate token for immediate login after registration
-    const token = generateToken(savedUser);
-
-    // Return safe user data
-    const safeUserData = savedUser.getSafeData();
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 
     res.status(201).json({
+      success: true,
       message: 'User registered successfully',
-      token,
-      user: safeUserData,
+      data: {
+        token,
+        user: {
+          id: user._id,
+          userid: user.userid,
+          email: user.email,
+          role: user.role,
+          name: user.name,
+          department: user.department,
+          phone: user.phone,
+          address: user.address,
+          hostelRoom: user.hostelRoom,
+          hostelBlock: user.hostelBlock,
+          hostelFloor: user.hostelFloor,
+          hostelWarden: user.hostelWarden,
+          hostelWardenPhone: user.hostelWardenPhone,
+          hostelCheckInDate: user.hostelCheckInDate,
+          hostelCheckOutDate: user.hostelCheckOutDate,
+          isHostelResident: user.isHostelResident
+        }
+      }
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    
-    // Handle specific MongoDB errors
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      return res.status(400).json({ 
-        message: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`,
-        error: error.message 
-      });
-    }
-
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: 'Validation failed',
-        errors: messages
-      });
-    }
-
-    res.status(500).json({ 
-      message: 'Server error during registration', 
-      error: error.message 
-    });
+    console.error('Error in register:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -144,8 +89,6 @@ exports.userLogin = async (req, res) => {
   const { userid, password } = req.body;
 
   try {
-    console.log('Login attempt for userid:', userid); // Debug log
-
     // Basic validation
     if (!userid || !password) {
       return res.status(400).json({ message: 'Please provide userid and password' });
@@ -153,7 +96,6 @@ exports.userLogin = async (req, res) => {
 
     const user = await User.findOne({ userid });
     if (!user) {
-      console.log('User not found:', userid);
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -164,7 +106,6 @@ exports.userLogin = async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      console.log('Invalid password for user:', userid);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -173,7 +114,6 @@ exports.userLogin = async (req, res) => {
     await user.save();
 
     const token = generateToken(user);
-    console.log('Login successful for user:', userid);
 
     // Return safe user data
     const safeUserData = user.getSafeData();

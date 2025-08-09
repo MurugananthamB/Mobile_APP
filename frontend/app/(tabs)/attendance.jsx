@@ -1,15 +1,28 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Settings, UserCheck, Users } from 'lucide-react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, ChevronRight, Calendar, Settings, UserCheck, Users, Clock, Sun, Moon, Coffee, BookOpen, Home, AlertCircle, CheckCircle, XCircle, MinusCircle, PlusCircle } from 'lucide-react-native';
+import { useRouter, useLocalSearchParams, router as expoRouter } from 'expo-router';
 import { isManagement } from '../../utils/roleUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 import ApiService from '../../services/api';
 
 export default function AttendanceScreen() {
-  const router = useRouter(); // Initialize useRouter
+  const routerHook = useRouter(); // Initialize useRouter
+  const router = routerHook || expoRouter; // Fallback to imported router if hook fails
   const params = useLocalSearchParams(); // Get route parameters
+  
+  // Safety check for router
+  if (!router) {
+    console.error('Router is not available');
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
   const [userRole, setUserRole] = useState(null);
   const [isManagement, setIsManagement] = useState(false);
   const [markedDays, setMarkedDays] = useState([]); // Initialize markedDays as an array
@@ -20,31 +33,75 @@ export default function AttendanceScreen() {
   const [loadingStats, setLoadingStats] = useState(false); // Loading state specifically for attendance stats
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null); // State for selected date
   const [attendanceSummary, setAttendanceSummary] = useState({
- totalDays: 0,
+    totalDays: 0,
     presentDays: 0,
     absentDays: 0,
-    percentage: 0,
+    lateDays: 0,
+    holidayDays: 0,
+    leaveDays: 0,
+    workingDays: 0,
+    halfPresentDays: 0,
+    halfAbsentDays: 0,
+    percentage: 0
   });
   const [isNavigatingToScan, setIsNavigatingToScan] = useState(false); // State for scan navigation loading
+  const [isRouterReady, setIsRouterReady] = useState(false); // State for router readiness
 
   // Check user role on component mount
   useEffect(() => {
     checkUserRole();
   }, []);
 
+  // Set router as ready after component mounts
+  useEffect(() => {
+    if (router) {
+      setIsRouterReady(true);
+    }
+  }, [router]);
+
   // Handle selected date from notifications
   useEffect(() => {
+    console.log('=== ATTENDANCE PAGE PARAMS DEBUG ===');
+    console.log('All params received:', JSON.stringify(params, null, 2));
+    console.log('selectedDate param:', params.selectedDate);
+    console.log('highlightDate param:', params.highlightDate);
+    console.log('Type of selectedDate:', typeof params.selectedDate);
+    console.log('Type of highlightDate:', typeof params.highlightDate);
+    
     if (params.selectedDate) {
+      console.log('✅ selectedDate found in params');
+      console.log('Raw selectedDate value:', params.selectedDate);
+      
       const selectedDate = new Date(params.selectedDate);
+      console.log('Parsed selectedDate object:', selectedDate);
+      console.log('Is valid date?', !isNaN(selectedDate.getTime()));
+      console.log('SelectedDate toISOString:', selectedDate.toISOString());
+      console.log('SelectedDate toLocaleDateString:', selectedDate.toLocaleDateString());
+      
       setCurrentMonth(selectedDate);
       setSelectedCalendarDate(params.selectedDate);
       
-      // Show a brief highlight for the selected date
-      setTimeout(() => {
-        setSelectedCalendarDate(null);
-      }, 3000);
+      // If this is from a notification highlight, show a more prominent highlight
+      if (params.highlightDate === 'true') {
+        console.log('🎯 Notification highlight enabled - will highlight for 5 seconds');
+        // Show a more prominent highlight for notification-triggered dates
+        setTimeout(() => {
+          console.log('Clearing notification highlight after 5 seconds');
+          setSelectedCalendarDate(null);
+        }, 5000); // Keep highlight longer for notifications
+      } else {
+        console.log('Regular date selection - will highlight for 3 seconds');
+        // Show a brief highlight for regular date selection
+        setTimeout(() => {
+          console.log('Clearing regular highlight after 3 seconds');
+          setSelectedCalendarDate(null);
+        }, 3000);
+      }
+    } else {
+      console.log('❌ No selectedDate found in params');
     }
-  }, [params.selectedDate]);
+    console.log('=== END ATTENDANCE PAGE PARAMS DEBUG ===');
+  }, [params.selectedDate, params.highlightDate]);
 
   // Load data when the component mounts and when the month changes
   useEffect(() => {
@@ -99,11 +156,22 @@ export default function AttendanceScreen() {
         setAttendanceSummary(response.data);
         console.log('Attendance Summary after setting state:', response.data);
       } else {
-        setAttendanceSummary({ totalDays: 0, presentDays: 0, absentDays: 0, percentage: 0 }); // Reset on error
+        setAttendanceSummary({ 
+          totalDays: 0, 
+          presentDays: 0, 
+          absentDays: 0, 
+          lateDays: 0,
+          holidayDays: 0,
+          leaveDays: 0,
+          workingDays: 0,
+          halfPresentDays: 0,
+          halfAbsentDays: 0,
+          percentage: 0 
+        }); // Reset on error
         console.error('Error loading attendance stats:', response.message); // eslint-disable-line no-console
       }
     } catch (error) {
- console.error('Error loading attendance stats:', error);
+      console.error('Error loading attendance stats:', error);
     } finally { setLoadingStats(false); } // You might set a loading state for stats specifically if needed
   };
 
@@ -237,6 +305,10 @@ export default function AttendanceScreen() {
       case 'holiday': return 'H';
       case 'leave': return 'LE';
       case 'working': return 'W';
+      case 'half_present_morning': return 'AM';
+      case 'half_present_afternoon': return 'PM';
+      case 'half_present': return 'HP';
+      case 'half_absent': return 'HA';
       default: return '';
     }
   };
@@ -244,13 +316,51 @@ export default function AttendanceScreen() {
   // Helper to get the color for the status indicator (consolidated)
   const getIndicatorColor = (status) => {
     switch (status) {
- case 'present': return '#3b82f6'; // Blue
- case 'absent': return '#ef4444'; // Red
- case 'late': return '#f59e0b'; // Amber
- case 'holiday': return '#6b7280'; // Gray
- case 'leave': return '#8b5cf6'; // Purple for Leave
- case 'working': return '#10b981'; // Green
- default: return '#d1d5db'; // Light gray for unknown
+      case 'present': return '#10b981'; // Green
+      case 'absent': return '#ef4444'; // Red
+      case 'late': return '#f59e0b'; // Amber
+      case 'holiday': return '#6b7280'; // Gray
+      case 'leave': return '#8b5cf6'; // Purple for Leave
+      case 'working': return '#3b82f6'; // Blue
+      case 'half_present_morning': return '#f97316'; // Orange for morning
+      case 'half_present_afternoon': return '#ec4899'; // Pink for afternoon
+      case 'half_present': return '#8b5cf6'; // Purple for half present (distinct from morning/afternoon)
+      case 'half_absent': return '#dc2626'; // Dark red for half absent
+      default: return '#d1d5db'; // Light gray for unknown
+    }
+  };
+
+  // Get icon for attendance status
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'present': return CheckCircle;
+      case 'absent': return XCircle;
+      case 'late': return Clock;
+      case 'holiday': return Home;
+      case 'leave': return AlertCircle;
+      case 'working': return BookOpen;
+      case 'half_present_morning': return Sun;
+      case 'half_present_afternoon': return Moon;
+      case 'half_present': return Coffee; // Use coffee icon for half present (more distinct)
+      case 'half_absent': return MinusCircle;
+      default: return Calendar;
+    }
+  };
+
+  // Get status display text
+  const getStatusDisplayText = (status) => {
+    switch (status) {
+      case 'present': return 'Present';
+      case 'absent': return 'Absent';
+      case 'late': return 'Late';
+      case 'holiday': return 'Holiday';
+      case 'leave': return 'Leave';
+      case 'working': return 'Working';
+      case 'half_present_morning': return 'Half Day (AM)';
+      case 'half_present_afternoon': return 'Half Day (PM)';
+      case 'half_present': return 'Half Day Present';
+      case 'half_absent': return 'Half Absent';
+      default: return 'Unknown';
     }
   };
 
@@ -288,7 +398,7 @@ export default function AttendanceScreen() {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-  if (loading) {
+  if (loading || !isRouterReady) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -303,56 +413,97 @@ export default function AttendanceScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Attendance</Text>
-          <TouchableOpacity onPress={() => router.push('/profile')}>
+          <Text style={styles.headerTitle}>📊 Attendance</Text>
+          <TouchableOpacity onPress={() => {
+            if (!isRouterReady) {
+              console.error('Router not ready for navigation');
+              return;
+            }
+            try {
+              if (router && router.push) {
+                router.push('/profile');
+              } else {
+                console.error('Router not available for navigation');
+              }
+            } catch (error) {
+              console.error('Navigation error:', error);
+            }
+          }}>
             <Settings size={24} color="#1e40af" />
           </TouchableOpacity>
         </View>
 
-        {/* Attendance Summary */}
+        {/* Enhanced Attendance Summary */}
         <LinearGradient
           colors={['#10b981', '#059669']}
           style={styles.attendanceCard}
         >
           <View style={styles.attendanceHeader}>
             <Calendar size={24} color="#ffffff" />
-            <Text style={styles.attendanceTitle}>Attendance Overview</Text>
+            <Text style={styles.attendanceTitle}>📈 Attendance Overview</Text>
           </View>
           
           <View style={styles.attendanceStats}>
             <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <Calendar size={16} color="#ffffff" />
+              </View>
               <Text style={styles.statNumber}>{attendanceSummary.totalDays}</Text>
               <Text style={styles.statLabel}>Total Days</Text>
             </View>
             <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <CheckCircle size={16} color="#ffffff" />
+              </View>
               <Text style={styles.statNumber}>{attendanceSummary.presentDays}</Text>
               <Text style={styles.statLabel}>Present</Text>
             </View>
             <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <XCircle size={16} color="#ffffff" />
+              </View>
               <Text style={styles.statNumber}>{attendanceSummary.absentDays}</Text>
               <Text style={styles.statLabel}>Absent</Text>
             </View>
- <View style={styles.statItem}>
- <Text style={styles.statNumber}>{attendanceSummary.lateDays}</Text>
- <Text style={styles.statLabel}>Late</Text>
- </View>
             <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <Clock size={16} color="#ffffff" />
+              </View>
+              <Text style={styles.statNumber}>{attendanceSummary.lateDays}</Text>
+              <Text style={styles.statLabel}>Late</Text>
+            </View>
+          </View>
+
+          <View style={styles.attendanceStats}>
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <Sun size={16} color="#ffffff" />
+              </View>
+              <Text style={styles.statNumber}>{attendanceSummary.halfPresentDays || 0}</Text>
+              <Text style={styles.statLabel}>Half Present</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <MinusCircle size={16} color="#ffffff" />
+              </View>
+              <Text style={styles.statNumber}>{attendanceSummary.halfAbsentDays || 0}</Text>
+              <Text style={styles.statLabel}>Half Absent</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <Home size={16} color="#ffffff" />
+              </View>
               <Text style={styles.statNumber}>{attendanceSummary.holidayDays}</Text>
               <Text style={styles.statLabel}>Holiday</Text>
             </View>
- <View style={styles.statItem}>
- <Text style={styles.statNumber}>{attendanceSummary.leaveDays}</Text>
- <Text style={styles.statLabel}>Leave</Text>
- </View>
- <View style={styles.statItem}>
- <Text style={styles.statNumber}>{attendanceSummary.workingDays}</Text>
- <Text style={styles.statLabel}>Working</Text>
-            </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{attendanceSummary.percentage}%</Text>
-              <Text style={styles.statLabel}>Percentage</Text>
+              <View style={styles.statIconContainer}>
+                <AlertCircle size={16} color="#ffffff" />
+              </View>
+              <Text style={styles.statNumber}>{attendanceSummary.leaveDays}</Text>
+              <Text style={styles.statLabel}>Leave</Text>
             </View>
-          </View> 
+          </View>
           
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
@@ -380,7 +531,21 @@ export default function AttendanceScreen() {
         {isManagement && (
           <TouchableOpacity
             style={[styles.scanAttendanceButton, { backgroundColor: '#8b5cf6', marginTop: 10 }]}
-            onPress={() => router.push('/management-attendance')}
+            onPress={() => {
+              if (!isRouterReady) {
+                console.error('Router not ready for navigation');
+                return;
+              }
+              try {
+                if (router && router.push) {
+                  router.push('/management-attendance');
+                } else {
+                  console.error('Router not available for navigation');
+                }
+              } catch (error) {
+                console.error('Navigation error:', error);
+              }
+            }}
             activeOpacity={0.7}
           >
             <Users size={20} color="#ffffff" />
@@ -419,52 +584,46 @@ export default function AttendanceScreen() {
 
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const isSelectedDate = selectedCalendarDate === dateStr;
+              const isNotificationHighlight = isSelectedDate && params.highlightDate === 'true';
               
-                             // Check for individual attendance first
-               const individualRecord = Array.isArray(individualAttendance) ? individualAttendance.find(record => {
-                 // console.log('🔍 Checking record:', record, 'for date:', dateStr);
-
-                 // Convert calendar date string to Date object for comparison
-                 const calendarDate = new Date(dateStr);
-                 
-                 // Handle different date formats from the backend
-                 let recordDate = null;
-                 
-                 if (record.date instanceof Date) {
-                   recordDate = record.date;
-                 } else if (typeof record.date === 'string') {
-                   recordDate = new Date(record.date);
-                 } else if (record.date && typeof record.date === 'object' && record.date.$date) {
-                   recordDate = new Date(record.date.$date);
-                 }
-                 
-                 if (recordDate) {
-                   // Compare dates using toDateString() to ignore time
-                   const isMatch = recordDate.toDateString() === calendarDate.toDateString(); // compare date parts only
-                   console.log('📅 Date comparison:', recordDate.toDateString(), '===', calendarDate.toDateString(), 'Match:', isMatch);
-                   return isMatch;
-                 }
-                 
-                 return false;
-               }) : null;
-               
-
-               
-               // console.log('📊 Found individual record for', dateStr, ':', individualRecord);
-               
-               let displayStatus = null;
-               let isIndividualAttendance = false;
-               
-               if (individualRecord && individualRecord.status) {
-                 displayStatus = individualRecord.status.toLowerCase();
-                 isIndividualAttendance = true;
-                 // console.log('✅ Using individual attendance:', displayStatus);
-               } else {
-                 // If no individual attendance, check for management-defined marked day
-                 displayStatus = markedDays[dateStr];
-                 isIndividualAttendance = false; // It's a management mark, not individual attendance
-                 console.log('📋 Using management day type:', displayStatus);
-               }
+              // Check for individual attendance first
+              const individualRecord = Array.isArray(individualAttendance) ? individualAttendance.find(record => {
+                // Convert calendar date string to Date object for comparison
+                const calendarDate = new Date(dateStr);
+                
+                // Handle different date formats from the backend
+                let recordDate = null;
+                
+                if (record.date instanceof Date) {
+                  recordDate = record.date;
+                } else if (typeof record.date === 'string') {
+                  recordDate = new Date(record.date);
+                } else if (record.date && typeof record.date === 'object' && record.date.$date) {
+                  recordDate = new Date(record.date.$date);
+                }
+                
+                if (recordDate) {
+                  // Compare dates using toDateString() to ignore time
+                  const isMatch = recordDate.toDateString() === calendarDate.toDateString(); // compare date parts only
+                  return isMatch;
+                }
+                
+                return false;
+              }) : null;
+              
+              let displayStatus = null;
+              let isIndividualAttendance = false;
+              
+              if (individualRecord && individualRecord.status) {
+                displayStatus = individualRecord.status.toLowerCase();
+                isIndividualAttendance = true;
+              } else {
+                // If no individual attendance, check for management-defined marked day
+                displayStatus = markedDays[dateStr];
+                isIndividualAttendance = false; // It's a management mark, not individual attendance
+              }
+              
+              const StatusIcon = displayStatus ? getStatusIcon(displayStatus) : Calendar;
               
               return (
                 <TouchableOpacity 
@@ -472,63 +631,112 @@ export default function AttendanceScreen() {
                   style={[
                     styles.calendarDay,
                     isManagement && styles.calendarDayClickable,
-                    isSelectedDate && styles.selectedCalendarDay
+                    isSelectedDate && styles.selectedCalendarDay,
+                    isNotificationHighlight && styles.notificationHighlight
                   ]}
                   onPress={() => handleCalendarDayPress(day)}
                 >
                   <Text style={[styles.dayNumber, isSelectedDate && styles.selectedDayNumber]}>{day}</Text>
+                  
+                  {/* Notification highlight indicator */}
+                  {isNotificationHighlight && (
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>📢</Text>
+                    </View>
+                  )}
+                  
                   {/* Display status indicator if a status is determined */}
                   {displayStatus && (
                     <View style={[styles.statusIndicator, { backgroundColor: getIndicatorColor(displayStatus) }]}>
-                      <Text style={styles.statusText}>{getIndicatorText(displayStatus)}</Text>
+                      <StatusIcon size={12} color="#ffffff" />
                     </View>
                   )}
-                                     {/* Display individual attendance status text */}
-                   {isIndividualAttendance && displayStatus && (
-                     <View style={styles.attendanceStatusContainer}>
-                       {displayStatus === 'present' && (
-                         <Text style={[styles.dayStatusText, { color: '#3b82f6' }]}>Present</Text>
-                       )}
-                       {displayStatus === 'absent' && (
-                         <Text style={[styles.dayStatusText, { color: '#ef4444' }]}>Absent</Text>
-                       )}
-                       {displayStatus === 'working' && (
-                         <Text style={[styles.dayStatusText, { color: '#6b7280' }]}>Working</Text>
-                       )}
-                     </View> // Fixed closing tag
-                   )}
+                  
+                  {/* Display small text indicator for all statuses */}
+                  {displayStatus && (
+                    <View style={styles.statusTextContainer}>
+                      <Text style={[styles.statusText, { color: getIndicatorColor(displayStatus) }]}>
+                        {getIndicatorText(displayStatus)}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Display individual attendance status text */}
+                  {isIndividualAttendance && displayStatus && (
+                    <View style={styles.attendanceStatusContainer}>
+                      <Text style={[styles.dayStatusText, { color: getIndicatorColor(displayStatus) }]}>
+                        {getStatusDisplayText(displayStatus)}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        {/* Legend */}
+        {/* Enhanced Legend */}
         <View style={styles.legend}>
-          <Text style={styles.legendTitle}>Legend:</Text>
+          <Text style={styles.legendTitle}>📋 Legend:</Text>
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#3b82f6' }]} />
+              <View style={[styles.legendColor, { backgroundColor: '#10b981' }]}>
+                <CheckCircle size={12} color="#ffffff" />
+              </View>
               <Text style={styles.legendText}>Present (P)</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#ef4444' }]} />
+              <View style={[styles.legendColor, { backgroundColor: '#ef4444' }]}>
+                <XCircle size={12} color="#ffffff" />
+              </View>
               <Text style={styles.legendText}>Absent (A)</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#f59e0b' }]} />
+              <View style={[styles.legendColor, { backgroundColor: '#f59e0b' }]}>
+                <Clock size={12} color="#ffffff" />
+              </View>
               <Text style={styles.legendText}>Late (L)</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#6b7280' }]} />
+              <View style={[styles.legendColor, { backgroundColor: '#f97316' }]}>
+                <Sun size={12} color="#ffffff" />
+              </View>
+              <Text style={styles.legendText}>Half Day AM (AM)</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#ec4899' }]}>
+                <Moon size={12} color="#ffffff" />
+              </View>
+              <Text style={styles.legendText}>Half Day PM (PM)</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#8b5cf6' }]}>
+                <Coffee size={12} color="#ffffff" />
+              </View>
+              <Text style={styles.legendText}>Half Day Present (HP)</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#dc2626' }]}>
+                <MinusCircle size={12} color="#ffffff" />
+              </View>
+              <Text style={styles.legendText}>Half Absent (HA)</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { backgroundColor: '#6b7280' }]}>
+                <Home size={12} color="#ffffff" />
+              </View>
               <Text style={styles.legendText}>Holiday (H)</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#8b5cf6' }]} />
+              <View style={[styles.legendColor, { backgroundColor: '#8b5cf6' }]}>
+                <AlertCircle size={12} color="#ffffff" />
+              </View>
               <Text style={styles.legendText}>Leave (LE)</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#10b981' }]} />
+              <View style={[styles.legendColor, { backgroundColor: '#3b82f6' }]}>
+                <BookOpen size={12} color="#ffffff" />
+              </View>
               <Text style={styles.legendText}>Working (W)</Text>
             </View>
           </View>
@@ -552,9 +760,10 @@ export default function AttendanceScreen() {
               
               <View style={styles.dayTypeOptions}>
                 <TouchableOpacity 
-                  style={[styles.dayTypeOption, { backgroundColor: '#10b981' }]}
+                  style={[styles.dayTypeOption, { backgroundColor: '#3b82f6' }]}
                   onPress={() => handleSetDayType('working')}
                 >
+                  <BookOpen size={20} color="#ffffff" />
                   <Text style={styles.dayTypeText}>Working</Text>
                 </TouchableOpacity>
                 
@@ -562,13 +771,15 @@ export default function AttendanceScreen() {
                   style={[styles.dayTypeOption, { backgroundColor: '#ef4444' }]}
                   onPress={() => handleSetDayType('holiday')}
                 >
+                  <Home size={20} color="#ffffff" />
                   <Text style={styles.dayTypeText}>Holiday</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[styles.dayTypeOption, { backgroundColor: '#f59e0b' }]}
-                  onPress={() => handleSetDayType('leave')} // Use purple for leave in modal button too?
+                  onPress={() => handleSetDayType('leave')}
                 >
+                  <AlertCircle size={20} color="#ffffff" />
                   <Text style={styles.dayTypeText}>Leave</Text>
                 </TouchableOpacity>
               </View>
@@ -606,36 +817,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#1f2937',
   },
   attendanceCard: {
     margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 3,
+    padding: 20,
+    borderRadius: 16,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   attendanceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   attendanceTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#ffffff',
-    marginLeft: 10,
+    marginLeft: 12,
   },
   attendanceStats: {
     flexDirection: 'row',
@@ -645,15 +861,27 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   statNumber: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#ffffff',
+    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#ffffff',
     opacity: 0.9,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   progressContainer: {
     flexDirection: 'row',
@@ -746,6 +974,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     borderRadius: 8,
   },
+  notificationHighlight: {
+    borderWidth: 3,
+    borderColor: '#3b82f6', // Highlight color
+    borderRadius: 8,
+  },
   dayNumber: {
     fontSize: 14,
     fontWeight: '500',
@@ -761,17 +994,31 @@ const styles = StyleSheet.create({
   },
   statusIndicator: {
     position: 'absolute',
-    bottom: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    bottom: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   statusText: {
     fontSize: 8,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  statusTextContainer: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 4,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
   },
   legend: {
     margin: 20,
@@ -800,10 +1047,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
   },
   legendText: {
     fontSize: 12,
@@ -840,6 +1094,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   dayTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -849,7 +1105,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
-    textAlign: 'center',
+    marginLeft: 10,
   },
   cancelButton: {
     paddingVertical: 12,
@@ -912,5 +1168,22 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#3b82f6',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  notificationBadgeText: {
+    fontSize: 12,
+    color: '#ffffff',
   },
 });

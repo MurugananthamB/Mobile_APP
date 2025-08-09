@@ -1,22 +1,427 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, TextInput, Alert, Platform, Image, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Calendar, Clock, MapPin, Users, Star, Plus, X, Search, ChevronLeft, ChevronDown } from 'lucide-react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Calendar, Clock, MapPin, Users, Star, Plus, X, Search, ChevronLeft, ChevronDown, File, Image as ImageIcon, Trash2, Download } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import ApiService from '../services/api';
+
+// Helper functions for date and time formatting
+const formatDateForDisplay = (date) => {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+};
+
+const formatTimeForDisplay = (date) => {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+const formatDateForAPI = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimeForAPI = (date) => {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+// Web-compatible date and time picker components
+const WebDatePicker = ({ value, onChange, minimumDate, title }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [tempDate, setTempDate] = useState(value);
+  const [currentMonth, setCurrentMonth] = useState(value);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentMonth(value);
+      setTempDate(value);
+    }
+  }, [isOpen, value]);
+
+  // Calendar helper functions
+  const getDaysInMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const formatMonthYear = (date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  const isSameDay = (date1, date2) => {
+    return date1.getDate() === date2.getDate() && 
+           date1.getMonth() === date2.getMonth() && 
+           date1.getFullYear() === date2.getFullYear();
+  };
+
+  const handleDateSelect = (day) => {
+    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    if (minimumDate && selectedDate < minimumDate) {
+      setError('Date cannot be in the past');
+      return;
+    }
+    setTempDate(selectedDate);
+    setError('');
+  };
+
+  const handleMonthChange = (direction) => {
+    const newMonth = new Date(currentMonth);
+    if (direction === 'prev') {
+      newMonth.setMonth(newMonth.getMonth() - 1);
+    } else {
+      newMonth.setMonth(newMonth.getMonth() + 1);
+    }
+    setCurrentMonth(newMonth);
+  };
+
+  const handleConfirm = () => {
+    if (error) return;
+    onChange(null, tempDate);
+    setIsOpen(false);
+  };
+
+  const handleCancel = () => {
+    setTempDate(value);
+    setCurrentMonth(value);
+    setError('');
+    setIsOpen(false);
+  };
+
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<View key={`empty-${i}`} style={styles.calendarDay} />);
+    }
+
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      const isSelected = isSameDay(date, tempDate);
+      const isToday = isSameDay(date, new Date());
+      const isPast = minimumDate && date < minimumDate;
+
+      days.push(
+        <TouchableOpacity
+          key={day}
+          style={[
+            styles.calendarDay,
+            isSelected && styles.calendarDaySelected,
+            isToday && styles.calendarDayToday,
+            isPast && styles.calendarDayDisabled
+          ]}
+          onPress={() => !isPast && handleDateSelect(day)}
+          disabled={isPast}
+        >
+          <Text style={[
+            styles.calendarDayText,
+            isSelected && styles.calendarDayTextSelected,
+            isToday && styles.calendarDayTextToday,
+            isPast && styles.calendarDayTextDisabled
+          ]}>
+            {day}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return days;
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.dateTimeSelector}
+        onPress={() => setIsOpen(true)}
+      >
+        <View style={styles.selectorContent}>
+          <Calendar size={20} color="#6b7280" />
+          <Text style={styles.selectorText}>
+            {formatDateForDisplay(value)}
+          </Text>
+        </View>
+        <ChevronDown size={20} color="#6b7280" />
+      </TouchableOpacity>
+
+      {isOpen && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+        >
+          <View style={styles.pickerModalOverlay}>
+            <View style={styles.pickerModalContent}>
+              <Text style={styles.pickerTitle}>{title}</Text>
+              
+              {/* Calendar Header */}
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity
+                  style={styles.calendarNavButton}
+                  onPress={() => handleMonthChange('prev')}
+                >
+                  <Text style={styles.calendarNavText}>‹</Text>
+                </TouchableOpacity>
+                <Text style={styles.calendarMonthYear}>{formatMonthYear(currentMonth)}</Text>
+                <TouchableOpacity
+                  style={styles.calendarNavButton}
+                  onPress={() => handleMonthChange('next')}
+                >
+                  <Text style={styles.calendarNavText}>›</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Calendar Days Header */}
+              <View style={styles.calendarDaysHeader}>
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
+                ))}
+              </View>
+
+              {/* Calendar Grid */}
+              <View style={styles.calendarGrid}>
+                {renderCalendar()}
+              </View>
+
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : null}
+
+              <View style={styles.pickerButtons}>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={handleCancel}
+                >
+                  <Text style={styles.pickerButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pickerButton, styles.pickerButtonConfirm, error && styles.disabledButton]}
+                  onPress={handleConfirm}
+                  disabled={!!error}
+                >
+                  <Text style={styles.pickerButtonTextConfirm}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </>
+  );
+};
+
+const WebTimePicker = ({ value, onChange, title }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [tempTime, setTempTime] = useState(value);
+  const [error, setError] = useState('');
+  const hoursScrollRef = useRef(null);
+  const minutesScrollRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Scroll to current time when modal opens
+      setTimeout(() => {
+        if (hoursScrollRef.current) {
+          hoursScrollRef.current.scrollTo({
+            y: tempTime.getHours() * 50,
+            animated: true
+          });
+        }
+        if (minutesScrollRef.current) {
+          minutesScrollRef.current.scrollTo({
+            y: Math.floor(tempTime.getMinutes() / 5) * 50,
+            animated: true
+          });
+        }
+      }, 100);
+    }
+  }, [isOpen]);
+
+  const handleTimeSelect = (hours, minutes) => {
+    const newTime = new Date();
+    newTime.setHours(hours, minutes, 0, 0);
+    setTempTime(newTime);
+    setError('');
+  };
+
+  const handleConfirm = () => {
+    if (error) return;
+    onChange(null, tempTime);
+    setIsOpen(false);
+  };
+
+  const handleCancel = () => {
+    setTempTime(value);
+    setError('');
+    setIsOpen(false);
+  };
+
+  const renderTimePicker = () => {
+    const hours = [];
+    const minutes = [];
+
+    // Generate hours (0-23)
+    for (let hour = 0; hour < 24; hour++) {
+      hours.push(
+        <TouchableOpacity
+          key={hour}
+          style={[
+            styles.timeOption,
+            tempTime.getHours() === hour && styles.timeOptionSelected
+          ]}
+          onPress={() => handleTimeSelect(hour, tempTime.getMinutes())}
+        >
+          <Text style={[
+            styles.timeOptionText,
+            tempTime.getHours() === hour && styles.timeOptionTextSelected
+          ]}>
+            {hour.toString().padStart(2, '0')}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    // Generate minutes (0-59, step by 5)
+    for (let minute = 0; minute < 60; minute += 5) {
+      minutes.push(
+        <TouchableOpacity
+          key={minute}
+          style={[
+            styles.timeOption,
+            tempTime.getMinutes() === minute && styles.timeOptionSelected
+          ]}
+          onPress={() => handleTimeSelect(tempTime.getHours(), minute)}
+        >
+          <Text style={[
+            styles.timeOptionText,
+            tempTime.getMinutes() === minute && styles.timeOptionTextSelected
+          ]}>
+            {minute.toString().padStart(2, '0')}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={styles.timePickerContainer}>
+        <View style={styles.timePickerColumn}>
+          <Text style={styles.timePickerLabel}>Hour</Text>
+          <ScrollView style={styles.timePickerScroll} showsVerticalScrollIndicator={false} ref={hoursScrollRef}>
+            {hours}
+          </ScrollView>
+        </View>
+        <Text style={styles.timePickerSeparator}>:</Text>
+        <View style={styles.timePickerColumn}>
+          <Text style={styles.timePickerLabel}>Minute</Text>
+          <ScrollView style={styles.timePickerScroll} showsVerticalScrollIndicator={false} ref={minutesScrollRef}>
+            {minutes}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.dateTimeSelector}
+        onPress={() => setIsOpen(true)}
+      >
+        <View style={styles.selectorContent}>
+          <Clock size={20} color="#6b7280" />
+          <Text style={styles.selectorText}>
+            {formatTimeForDisplay(value)}
+          </Text>
+        </View>
+        <ChevronDown size={20} color="#6b7280" />
+      </TouchableOpacity>
+
+      {isOpen && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+        >
+          <View style={styles.pickerModalOverlay}>
+            <View style={styles.pickerModalContent}>
+              <Text style={styles.pickerTitle}>{title}</Text>
+              
+              {renderTimePicker()}
+
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : null}
+
+              <View style={styles.pickerButtons}>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={handleCancel}
+                >
+                  <Text style={styles.pickerButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pickerButton, styles.pickerButtonConfirm, error && styles.disabledButton]}
+                  onPress={handleConfirm}
+                  disabled={!!error}
+                >
+                  <Text style={styles.pickerButtonTextConfirm}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </>
+  );
+};
 
 export default function EventsScreen() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const params = useLocalSearchParams(); // Get route parameters
   const [userData, setUserData] = useState(null);
+  const scrollViewRef = useRef(null);
   
   // Add event modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  
+  // Date and Time picker states
+  const [showEventDatePicker, setShowEventDatePicker] = useState(false);
+  const [showValidityDatePicker, setShowValidityDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [eventDate, setEventDate] = useState(new Date());
+  const [validityDate, setValidityDate] = useState(new Date());
+  const [startTime, setStartTime] = useState(new Date());
+  const [endTime, setEndTime] = useState(new Date());
   
   // Search and calendar states
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,21 +429,23 @@ export default function EventsScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  // Highlight states for notifications
+  const [highlightedEventId, setHighlightedEventId] = useState(null);
+  const [highlightedEvent, setHighlightedEvent] = useState(null);
+  const [highlightedEventIndex, setHighlightedEventIndex] = useState(null);
+  
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
-    eventDay: '',
-    eventMonth: '',
-    eventYear: '',
-    validityDay: '',
-    validityMonth: '',
-    validityYear: '',
-    startTime: '',
-    endTime: '',
+    eventDate: new Date(),
+    validityDate: new Date(),
+    startTime: new Date(),
+    endTime: new Date(),
     venue: '',
     organizer: '',
-    requirements: '',
-    prizes: ''
+    documents: [],
+    images: []
   });
 
   useEffect(() => {
@@ -46,6 +453,35 @@ export default function EventsScreen() {
     loadEvents();
   }, []);
 
+  // Handle parameters from notifications
+  useEffect(() => {
+    if (params.eventId && params.highlightEvent === 'true') {
+      setHighlightedEventId(params.eventId);
+      
+      // Find the event index for scrolling
+      const eventIndex = events.findIndex(event => event._id === params.eventId);
+      if (eventIndex !== -1) {
+        setHighlightedEventIndex(eventIndex);
+        
+        // Scroll to the highlighted event after a short delay
+        setTimeout(() => {
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({
+              y: eventIndex * 300, // Approximate height per event
+              animated: true
+            });
+          }
+        }, 500);
+      }
+      
+      // Clear highlight after 5 seconds
+      setTimeout(() => {
+        setHighlightedEventId(null);
+        setHighlightedEvent(null);
+        setHighlightedEventIndex(null);
+      }, 5000);
+    }
+  }, [params.eventId, params.highlightEvent, events]);
 
 
   const loadUserData = async () => {
@@ -93,8 +529,7 @@ export default function EventsScreen() {
     console.log('🔍 Frontend validation - checking form data:', newEvent);
     
     if (!newEvent.title || !newEvent.description || 
-        !newEvent.eventDay || !newEvent.eventMonth || !newEvent.eventYear ||
-        !newEvent.validityDay || !newEvent.validityMonth || !newEvent.validityYear ||
+        !newEvent.eventDate || !newEvent.validityDate || 
         !newEvent.startTime || !newEvent.endTime || 
         !newEvent.venue || !newEvent.organizer) {
       console.log('❌ Frontend validation failed - missing fields');
@@ -104,27 +539,9 @@ export default function EventsScreen() {
 
     console.log('📅 Frontend date validation...');
     
-    // Validate day, month, year ranges
-    const eventDay = parseInt(newEvent.eventDay);
-    const eventMonth = parseInt(newEvent.eventMonth);
-    const eventYear = parseInt(newEvent.eventYear);
-    const validityDay = parseInt(newEvent.validityDay);
-    const validityMonth = parseInt(newEvent.validityMonth);
-    const validityYear = parseInt(newEvent.validityYear);
-    
-    if (eventDay < 1 || eventDay > 31 || eventMonth < 1 || eventMonth > 12 || eventYear < 2024) {
-      Alert.alert('Validation Error', 'Please enter a valid event date');
-      return false;
-    }
-    
-    if (validityDay < 1 || validityDay > 31 || validityMonth < 1 || validityMonth > 12 || validityYear < 2024) {
-      Alert.alert('Validation Error', 'Please enter a valid validity date');
-      return false;
-    }
-    
-    // Create date objects
-    const eventDate = new Date(eventYear, eventMonth - 1, eventDay);
-    const validityDate = new Date(validityYear, validityMonth - 1, validityDay);
+    // Validate dates
+    const eventDate = new Date(newEvent.eventDate);
+    const validityDate = new Date(newEvent.validityDate);
     const today = new Date();
     
     // Reset time to start of day for accurate comparison
@@ -167,6 +584,210 @@ export default function EventsScreen() {
     return true;
   };
 
+  // File upload functions
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'text/plain'
+        ],
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        
+        // Check file size (2MB = 2 * 1024 * 1024 bytes)
+        const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+        if (file.size > maxSize) {
+          Alert.alert(
+            'File Too Large', 
+            'Document size must be 2MB or less. Please select a smaller file.'
+          );
+          return;
+        }
+        
+        const document = {
+          name: file.name,
+          uri: file.uri,
+          size: file.size,
+          type: 'document',
+          mimeType: file.mimeType
+        };
+        
+        setNewEvent(prev => ({
+          ...prev,
+          documents: [...prev.documents, document]
+        }));
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick document');
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant permission to access your photo library');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const image = result.assets[0];
+        
+        // Check file size (2MB = 2 * 1024 * 1024 bytes)
+        const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+        if (image.fileSize > maxSize) {
+          Alert.alert(
+            'Image Too Large', 
+            'Image size must be 2MB or less. Please select a smaller image.'
+          );
+          return;
+        }
+        
+        const imageFile = {
+          name: `image_${Date.now()}.jpg`,
+          uri: image.uri,
+          size: image.fileSize,
+          type: 'image',
+          mimeType: 'image/jpeg'
+        };
+        
+        setNewEvent(prev => ({
+          ...prev,
+          images: [...prev.images, imageFile]
+        }));
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const removeDocument = (index) => {
+    setNewEvent(prev => ({
+      ...prev,
+      documents: prev.documents.filter((_, i) => i !== index)
+    }));
+  };
+
+  const removeImage = (index) => {
+    setNewEvent(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Download functions
+  const downloadDocument = async (documentItem) => {
+    try {
+      Alert.alert('Downloading', 'Please wait while we download your document...');
+      
+      if (Platform.OS === 'web') {
+        // For web platform, open the file in a new tab or trigger download
+        const link = document.createElement('a');
+        link.href = documentItem.uri;
+        link.download = documentItem.name || `document_${Date.now()}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        Alert.alert('Download Complete', `Document "${documentItem.name || 'Document'}" download has been initiated.`);
+      } else {
+        // For mobile platforms, use expo-file-system and expo-sharing
+        const fileName = documentItem.name || `document_${Date.now()}`;
+        const fileExtension = documentItem.mimeType ? documentItem.mimeType.split('/')[1] : 'pdf';
+        const fileUri = `${FileSystem.documentDirectory}${fileName}.${fileExtension}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(
+          documentItem.uri,
+          fileUri
+        );
+        
+        if (downloadResult.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: documentItem.mimeType || 'application/octet-stream',
+              dialogTitle: `Download ${documentItem.name || 'Document'}`,
+              UTI: 'public.item'
+            });
+          } else {
+            Alert.alert('Download Complete', `Document "${documentItem.name || 'Document'}" has been saved to your device.`);
+          }
+        } else {
+          Alert.alert('Download Failed', 'Failed to download the document. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Download Error', 'Failed to download the document. Please try again.');
+    }
+  };
+
+  const downloadImage = async (imageItem) => {
+    try {
+      Alert.alert('Downloading', 'Please wait while we download your image...');
+      
+      if (Platform.OS === 'web') {
+        // For web platform, open the file in a new tab or trigger download
+        const link = document.createElement('a');
+        link.href = imageItem.uri;
+        link.download = imageItem.name || `image_${Date.now()}.jpg`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        Alert.alert('Download Complete', `Image "${imageItem.name || 'Image'}" download has been initiated.`);
+      } else {
+        // For mobile platforms, use expo-file-system and expo-sharing
+        const fileName = imageItem.name || `image_${Date.now()}.jpg`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(
+          imageItem.uri,
+          fileUri
+        );
+        
+        if (downloadResult.status === 200) {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: imageItem.mimeType || 'image/jpeg',
+              dialogTitle: `Download ${imageItem.name || 'Image'}`,
+              UTI: 'public.image'
+            });
+          } else {
+            Alert.alert('Download Complete', `Image "${imageItem.name || 'Image'}" has been saved to your device.`);
+          }
+        } else {
+          Alert.alert('Download Failed', 'Failed to download the image. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Download Error', 'Failed to download the image. Please try again.');
+    }
+  };
+
   const handleCreateEvent = async () => {
     console.log('🚀 handleCreateEvent called');
     console.log('📋 Current form data:', newEvent);
@@ -181,22 +802,25 @@ export default function EventsScreen() {
       console.log('⏳ Setting submitting state to true');
       
       // Combine date fields into proper format
-      const eventDate = `${newEvent.eventYear}-${newEvent.eventMonth.padStart(2, '0')}-${newEvent.eventDay.padStart(2, '0')}`;
-      const validityDate = `${newEvent.validityYear}-${newEvent.validityMonth.padStart(2, '0')}-${newEvent.validityDay.padStart(2, '0')}`;
+      const eventDate = formatDateForAPI(newEvent.eventDate);
+      const validityDate = formatDateForAPI(newEvent.validityDate);
+      const startTime = formatTimeForAPI(newEvent.startTime);
+      const endTime = formatTimeForAPI(newEvent.endTime);
       
       console.log('📅 Combined dates - Event:', eventDate, 'Validity:', validityDate);
+      console.log('⏰ Combined times - Start:', startTime, 'End:', endTime);
       
       const eventData = {
         title: newEvent.title,
         description: newEvent.description,
         date: eventDate,
         validityDate: validityDate,
-        startTime: newEvent.startTime,
-        endTime: newEvent.endTime,
+        startTime: startTime,
+        endTime: endTime,
         venue: newEvent.venue,
         organizer: newEvent.organizer,
-        requirements: newEvent.requirements ? newEvent.requirements.split(',').map(item => item.trim()) : [],
-        prizes: newEvent.prizes ? newEvent.prizes.split(',').map(item => item.trim()) : []
+        documents: newEvent.documents || [],
+        images: newEvent.images || []
       };
 
       console.log('📝 Final event data to send:', eventData);
@@ -247,18 +871,14 @@ export default function EventsScreen() {
     setNewEvent({
       title: '',
       description: '',
-      eventDay: '',
-      eventMonth: '',
-      eventYear: '',
-      validityDay: '',
-      validityMonth: '',
-      validityYear: '',
-      startTime: '',
-      endTime: '',
+      eventDate: new Date(),
+      validityDate: new Date(),
+      startTime: new Date(),
+      endTime: new Date(),
       venue: '',
       organizer: '',
-      requirements: '',
-      prizes: ''
+      documents: [],
+      images: []
     });
   };
 
@@ -385,16 +1005,13 @@ export default function EventsScreen() {
 
   // Predefined category options (now used as title)
   const categoryOptions = [
-    { value: 'Sports & Athletics', label: 'Sports & Athletics', icon: '🏃‍♂️', color: '#10b981' },
-    { value: 'Academic & Education', label: 'Academic & Education', icon: '📚', color: '#3b82f6' },
-    { value: 'Cultural & Arts', label: 'Cultural & Arts', icon: '🎭', color: '#8b5cf6' },
-    { value: 'Technology & IT', label: 'Technology & IT', icon: '💻', color: '#f59e0b' },
-    { value: 'Social & Celebration', label: 'Social & Celebration', icon: '🎉', color: '#ec4899' },
-    { value: 'Workshop & Training', label: 'Workshop & Training', icon: '🔧', color: '#06b6d4' },
     { value: 'General Meeting', label: 'General Meeting', icon: '👥', color: '#667eea' },
-    { value: 'Review Meeting', label: 'Review Meeting', icon: '📋', color: '#059669' },
-    { value: 'Orientation Program', label: 'Orientation Program', icon: '🎓', color: '#7c3aed' },
-    { value: 'Other', label: 'Other', icon: '📅', color: '#6b7280' },
+    { value: 'Review Meeting', label: 'Review Meeting', icon: '📊', color: '#059669' },
+    { value: 'Orientation Program', label: 'Orientation Program', icon: '🎯', color: '#7c3aed' },
+    { value: 'Conference', label: 'Conference', icon: '🎤', color: '#6b7280' },
+    { value: 'Seminar', label: 'Seminar', icon: '📚', color: '#6b7280' },
+    { value: 'Committee Meeting', label: 'Committee Meeting', icon: '👨‍👨‍👦‍👦', color: '#6b7280' },
+    { value: 'Other', label: 'Other', icon: '📌', color: '#6b7280' },
   ];
 
 
@@ -605,6 +1222,7 @@ export default function EventsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        ref={scrollViewRef}
       >
         {/* Timeline Events */}
         <View style={styles.timelineContainer}>
@@ -651,8 +1269,24 @@ export default function EventsScreen() {
                     {/* Event Card */}
                     <LinearGradient
                       colors={[categoryStyle.backgroundColor, categoryStyle.backgroundColor + '80']}
-                      style={styles.eventCard}
+                      style={[
+                        styles.eventCard,
+                        highlightedEventId === event._id && {
+                          borderWidth: 3,
+                          borderColor: '#ffd700',
+                          shadowColor: '#ffd700',
+                          shadowOffset: { width: 0, height: 0 },
+                          shadowOpacity: 0.8,
+                          shadowRadius: 10,
+                          elevation: 8,
+                        }
+                      ]}
                     >
+                      {highlightedEventId === event._id && (
+                        <View style={styles.highlightBadge}>
+                          <Text style={styles.highlightText}>📢 New Event</Text>
+                        </View>
+                      )}
                       <Text style={styles.eventTitle}>{event.title}</Text>
                       
                       {/* Event Description */}
@@ -683,23 +1317,85 @@ export default function EventsScreen() {
                           </View>
                         )}
                         
-                        {/* Requirements */}
-                        {event.requirements && event.requirements.length > 0 && (
+                        {/* Documents */}
+                        {event.documents && event.documents.length > 0 && (
                           <View style={styles.detailItem}>
-                            <Text style={styles.detailIcon}>📋</Text>
+                            <Text style={styles.detailIcon}>📄</Text>
                             <Text style={styles.detailText}>
-                              Requirements: {Array.isArray(event.requirements) ? event.requirements.join(', ') : event.requirements}
+                              Documents: {event.documents.length} file(s)
                             </Text>
                           </View>
                         )}
                         
-                        {/* Prizes */}
-                        {event.prizes && event.prizes.length > 0 && (
+                        {/* Documents List */}
+                        {event.documents && event.documents.length > 0 && (
+                          <View style={styles.attachmentsSection}>
+                            {event.documents.map((documentItem, index) => (
+                              <TouchableOpacity 
+                                key={index} 
+                                style={styles.attachmentCard}
+                                onPress={() => downloadDocument(documentItem)}
+                              >
+                                <LinearGradient
+                                  colors={['#3b82f6', '#1d4ed8']}
+                                  style={styles.attachmentCardGradient}
+                                >
+                                  <View style={styles.attachmentCardDocument}>
+                                    <File size={20} color="#ffffff" />
+                                  </View>
+                                  <View style={styles.attachmentCardContent}>
+                                    <Text style={styles.attachmentCardName} numberOfLines={1}>
+                                      {documentItem.name}
+                                    </Text>
+                                    <Text style={styles.attachmentCardSize}>
+                                      {(documentItem.size / 1024 / 1024).toFixed(2)} MB
+                                    </Text>
+                                  </View>
+                                  <Download size={16} color="#ffffff" />
+                                </LinearGradient>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+                        
+                        {/* Images */}
+                        {event.images && event.images.length > 0 && (
                           <View style={styles.detailItem}>
-                            <Text style={styles.detailIcon}>🏆</Text>
+                            <Text style={styles.detailIcon}>🖼️</Text>
                             <Text style={styles.detailText}>
-                              Prizes: {Array.isArray(event.prizes) ? event.prizes.join(', ') : event.prizes}
+                              Images: {event.images.length} image(s)
                             </Text>
+                          </View>
+                        )}
+                        
+                        {/* Images List */}
+                        {event.images && event.images.length > 0 && (
+                          <View style={styles.attachmentsSection}>
+                            {event.images.map((imageItem, index) => (
+                              <TouchableOpacity 
+                                key={index} 
+                                style={styles.attachmentCard}
+                                onPress={() => downloadImage(imageItem)}
+                              >
+                                <LinearGradient
+                                  colors={['#10b981', '#059669']}
+                                  style={styles.attachmentCardGradient}
+                                >
+                                  <View style={styles.attachmentCardImage}>
+                                    <Image source={{ uri: imageItem.uri }} style={styles.attachmentThumbnail} />
+                                  </View>
+                                  <View style={styles.attachmentCardContent}>
+                                    <Text style={styles.attachmentCardName} numberOfLines={1}>
+                                      {imageItem.name}
+                                    </Text>
+                                    <Text style={styles.attachmentCardSize}>
+                                      {(imageItem.size / 1024 / 1024).toFixed(2)} MB
+                                    </Text>
+                                  </View>
+                                  <Download size={16} color="#ffffff" />
+                                </LinearGradient>
+                              </TouchableOpacity>
+                            ))}
                           </View>
                         )}
                         
@@ -833,62 +1529,88 @@ export default function EventsScreen() {
               {/* Event Date */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Event Date *</Text>
-                <View style={styles.row}>
-                  <View style={[styles.inputGroup, styles.thirdWidth]}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={newEvent.eventDay}
-                      onChangeText={(text) => setNewEvent({...newEvent, eventDay: text})}
-                      placeholder="DD"
-                      keyboardType="numeric"
-                      maxLength={2}
-                    />
-                    <Text style={styles.helperText}>Day</Text>
-                  </View>
-                  <View style={[styles.inputGroup, styles.thirdWidth]}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={newEvent.eventMonth}
-                      onChangeText={(text) => setNewEvent({...newEvent, eventMonth: text})}
-                      placeholder="MM"
-                      keyboardType="numeric"
-                      maxLength={2}
-                    />
-                    <Text style={styles.helperText}>Month</Text>
-                  </View>
-                  <View style={[styles.inputGroup, styles.thirdWidth]}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={newEvent.eventYear}
-                      onChangeText={(text) => setNewEvent({...newEvent, eventYear: text})}
-                      placeholder="YYYY"
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                    <Text style={styles.helperText}>Year</Text>
-                  </View>
-                </View>
+                {Platform.OS === 'web' ? (
+                  <WebDatePicker
+                    value={newEvent.eventDate}
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        setNewEvent({...newEvent, eventDate: selectedDate});
+                      }
+                    }}
+                    minimumDate={new Date()}
+                    title="Select Event Date"
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={styles.dateTimeSelector}
+                    onPress={() => setShowEventDatePicker(true)}
+                  >
+                    <View style={styles.selectorContent}>
+                      <Calendar size={20} color="#6b7280" />
+                      <Text style={styles.selectorText}>
+                        {formatDateForDisplay(newEvent.eventDate)}
+                      </Text>
+                    </View>
+                    <ChevronDown size={20} color="#6b7280" />
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Time */}
               <View style={styles.row}>
                 <View style={[styles.inputGroup, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>Start Time *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={newEvent.startTime}
-                    onChangeText={(text) => setNewEvent({...newEvent, startTime: text})}
-                    placeholder="e.g., 9:00 AM"
-                  />
+                  {Platform.OS === 'web' ? (
+                    <WebTimePicker
+                      value={newEvent.startTime}
+                      onChange={(event, selectedTime) => {
+                        if (selectedTime) {
+                          setNewEvent({...newEvent, startTime: selectedTime});
+                        }
+                      }}
+                      title="Select Start Time"
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.dateTimeSelector}
+                      onPress={() => setShowStartTimePicker(true)}
+                    >
+                      <View style={styles.selectorContent}>
+                        <Clock size={20} color="#6b7280" />
+                        <Text style={styles.selectorText}>
+                          {formatTimeForDisplay(newEvent.startTime)}
+                        </Text>
+                      </View>
+                      <ChevronDown size={20} color="#6b7280" />
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <View style={[styles.inputGroup, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>End Time *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={newEvent.endTime}
-                    onChangeText={(text) => setNewEvent({...newEvent, endTime: text})}
-                    placeholder="e.g., 4:00 PM"
-                  />
+                  {Platform.OS === 'web' ? (
+                    <WebTimePicker
+                      value={newEvent.endTime}
+                      onChange={(event, selectedTime) => {
+                        if (selectedTime) {
+                          setNewEvent({...newEvent, endTime: selectedTime});
+                        }
+                      }}
+                      title="Select End Time"
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.dateTimeSelector}
+                      onPress={() => setShowEndTimePicker(true)}
+                    >
+                      <View style={styles.selectorContent}>
+                        <Clock size={20} color="#6b7280" />
+                        <Text style={styles.selectorText}>
+                          {formatTimeForDisplay(newEvent.endTime)}
+                        </Text>
+                      </View>
+                      <ChevronDown size={20} color="#6b7280" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
@@ -908,41 +1630,31 @@ export default function EventsScreen() {
               {/* Validity Date */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Validity Date *</Text>
-                <View style={styles.row}>
-                  <View style={[styles.inputGroup, styles.thirdWidth]}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={newEvent.validityDay}
-                      onChangeText={(text) => setNewEvent({...newEvent, validityDay: text})}
-                      placeholder="DD"
-                      keyboardType="numeric"
-                      maxLength={2}
-                    />
-                    <Text style={styles.helperText}>Day</Text>
-                  </View>
-                  <View style={[styles.inputGroup, styles.thirdWidth]}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={newEvent.validityMonth}
-                      onChangeText={(text) => setNewEvent({...newEvent, validityMonth: text})}
-                      placeholder="MM"
-                      keyboardType="numeric"
-                      maxLength={2}
-                    />
-                    <Text style={styles.helperText}>Month</Text>
-                  </View>
-                  <View style={[styles.inputGroup, styles.thirdWidth]}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={newEvent.validityYear}
-                      onChangeText={(text) => setNewEvent({...newEvent, validityYear: text})}
-                      placeholder="YYYY"
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                    <Text style={styles.helperText}>Year</Text>
-                  </View>
-                </View>
+                {Platform.OS === 'web' ? (
+                  <WebDatePicker
+                    value={newEvent.validityDate}
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) {
+                        setNewEvent({...newEvent, validityDate: selectedDate});
+                      }
+                    }}
+                    minimumDate={new Date()}
+                    title="Select Validity Date"
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={styles.dateTimeSelector}
+                    onPress={() => setShowValidityDatePicker(true)}
+                  >
+                    <View style={styles.selectorContent}>
+                      <Calendar size={20} color="#6b7280" />
+                      <Text style={styles.selectorText}>
+                        {formatDateForDisplay(newEvent.validityDate)}
+                      </Text>
+                    </View>
+                    <ChevronDown size={20} color="#6b7280" />
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Organizer */}
@@ -956,30 +1668,84 @@ export default function EventsScreen() {
                 />
               </View>
 
-              {/* Requirements */}
+              {/* Documents */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Requirements (comma-separated)</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  value={newEvent.requirements}
-                  onChangeText={(text) => setNewEvent({...newEvent, requirements: text})}
-                  placeholder="e.g., Sports uniform, Water bottle"
-                  multiline
-                  numberOfLines={2}
-                />
+                <Text style={styles.inputLabel}>Documents (Optional)</Text>
+                <Text style={styles.helperText}>
+                  📎 Add PDFs, Word files, PPTs, or text files to support your event
+                </Text>
+                
+                {/* Document Upload Button */}
+                <TouchableOpacity
+                  style={[styles.attachmentButton, styles.documentButton]}
+                  onPress={handlePickDocument}
+                  disabled={isSubmitting}
+                >
+                  <File size={20} color="#3b82f6" />
+                  <Text style={styles.attachmentButtonText}>Add Document</Text>
+                </TouchableOpacity>
+                
+                {/* Display Selected Documents */}
+                {newEvent.documents && newEvent.documents.length > 0 && (
+                  <View style={styles.attachmentsList}>
+                    {newEvent.documents.map((doc, index) => (
+                      <View key={index} style={styles.attachmentItem}>
+                        <View style={styles.attachmentInfo}>
+                          <File size={16} color="#3b82f6" />
+                          <Text style={styles.attachmentName} numberOfLines={1}>
+                            {doc.name}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.removeButton}
+                          onPress={() => removeDocument(index)}
+                        >
+                          <Trash2 size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
-              {/* Prizes */}
+              {/* Images */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Prizes (comma-separated)</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  value={newEvent.prizes}
-                  onChangeText={(text) => setNewEvent({...newEvent, prizes: text})}
-                  placeholder="e.g., Trophies, Certificates"
-                  multiline
-                  numberOfLines={2}
-                />
+                <Text style={styles.inputLabel}>Images (Optional)</Text>
+                <Text style={styles.helperText}>
+                  🖼️ Add images to showcase your event
+                </Text>
+                
+                {/* Image Upload Button */}
+                <TouchableOpacity
+                  style={[styles.attachmentButton, styles.imageButton]}
+                  onPress={handlePickImage}
+                  disabled={isSubmitting}
+                >
+                  <ImageIcon size={20} color="#10b981" />
+                  <Text style={styles.attachmentButtonText}>Add Image</Text>
+                </TouchableOpacity>
+                
+                {/* Display Selected Images */}
+                {newEvent.images && newEvent.images.length > 0 && (
+                  <View style={styles.attachmentsList}>
+                    {newEvent.images.map((img, index) => (
+                      <View key={index} style={styles.attachmentItem}>
+                        <View style={styles.attachmentInfo}>
+                          <ImageIcon size={16} color="#10b981" />
+                          <Text style={styles.attachmentName} numberOfLines={1}>
+                            {img.name}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.removeButton}
+                          onPress={() => removeImage(index)}
+                        >
+                          <Trash2 size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </ScrollView>
 
@@ -1000,10 +1766,165 @@ export default function EventsScreen() {
                   {isSubmitting ? 'Creating...' : 'Create Event'}
                 </Text>
               </TouchableOpacity>
-                         </View>
-           </View>
-         </TouchableOpacity>
-       </Modal>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Date and Time Pickers */}
+      {(showEventDatePicker || showValidityDatePicker || showStartTimePicker || showEndTimePicker) && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="slide"
+        >
+          <View style={styles.pickerModalOverlay}>
+            <View style={styles.pickerModalContent}>
+              {showEventDatePicker && (
+                <>
+                  <Text style={styles.pickerTitle}>Select Event Date</Text>
+                  <DateTimePicker
+                    value={newEvent.eventDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') {
+                        setShowEventDatePicker(false);
+                      }
+                      if (selectedDate) {
+                        setNewEvent({...newEvent, eventDate: selectedDate});
+                      }
+                    }}
+                    minimumDate={new Date()}
+                  />
+                  {Platform.OS === 'ios' && (
+                    <View style={styles.pickerButtons}>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowEventDatePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.pickerButton, styles.pickerButtonConfirm]}
+                        onPress={() => setShowEventDatePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonTextConfirm}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {showValidityDatePicker && (
+                <>
+                  <Text style={styles.pickerTitle}>Select Validity Date</Text>
+                  <DateTimePicker
+                    value={newEvent.validityDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (Platform.OS === 'android') {
+                        setShowValidityDatePicker(false);
+                      }
+                      if (selectedDate) {
+                        setNewEvent({...newEvent, validityDate: selectedDate});
+                      }
+                    }}
+                    minimumDate={new Date()}
+                  />
+                  {Platform.OS === 'ios' && (
+                    <View style={styles.pickerButtons}>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowValidityDatePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.pickerButton, styles.pickerButtonConfirm]}
+                        onPress={() => setShowValidityDatePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonTextConfirm}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {showStartTimePicker && (
+                <>
+                  <Text style={styles.pickerTitle}>Select Start Time</Text>
+                  <DateTimePicker
+                    value={newEvent.startTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedTime) => {
+                      if (Platform.OS === 'android') {
+                        setShowStartTimePicker(false);
+                      }
+                      if (selectedTime) {
+                        setNewEvent({...newEvent, startTime: selectedTime});
+                      }
+                    }}
+                  />
+                  {Platform.OS === 'ios' && (
+                    <View style={styles.pickerButtons}>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowStartTimePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.pickerButton, styles.pickerButtonConfirm]}
+                        onPress={() => setShowStartTimePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonTextConfirm}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {showEndTimePicker && (
+                <>
+                  <Text style={styles.pickerTitle}>Select End Time</Text>
+                  <DateTimePicker
+                    value={newEvent.endTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedTime) => {
+                      if (Platform.OS === 'android') {
+                        setShowEndTimePicker(false);
+                      }
+                      if (selectedTime) {
+                        setNewEvent({...newEvent, endTime: selectedTime});
+                      }
+                    }}
+                  />
+                  {Platform.OS === 'ios' && (
+                    <View style={styles.pickerButtons}>
+                      <TouchableOpacity
+                        style={styles.pickerButton}
+                        onPress={() => setShowEndTimePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.pickerButton, styles.pickerButtonConfirm]}
+                        onPress={() => setShowEndTimePicker(false)}
+                      >
+                        <Text style={styles.pickerButtonTextConfirm}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -1111,10 +2032,15 @@ const styles = StyleSheet.create({
     color: '#667eea',
     paddingHorizontal: 8,
   },
-  calendarTitle: {
+  calendarMonthYear: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1e293b',
+  },
+  calendarNavText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#667eea',
   },
   calendarDaysHeader: {
     flexDirection: 'row',
@@ -1131,13 +2057,17 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   calendarDay: {
-    width: '14.28%',
-    aspectRatio: 1,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    margin: 2,
+    borderRadius: 20,
   },
   calendarDayText: {
     fontSize: 16,
@@ -1153,6 +2083,21 @@ const styles = StyleSheet.create({
   },
   calendarDayWithEvents: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  calendarDayToday: {
+    backgroundColor: '#e0e7ff',
+    borderWidth: 1,
+    borderColor: '#667eea',
+  },
+  calendarDayTextToday: {
+    color: '#1e40af',
+    fontWeight: '600',
+  },
+  calendarDayDisabled: {
+    opacity: 0.5,
+  },
+  calendarDayTextDisabled: {
+    color: '#9ca3af',
   },
   calendarCloseButton: {
     position: 'absolute',
@@ -1389,6 +2334,7 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#9ca3af',
+    opacity: 0.5,
   },
   inputGroup: {
     marginBottom: 16,
@@ -1427,6 +2373,29 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  dateTimeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    minHeight: 48,
+  },
+  selectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  selectorText: {
+    fontSize: 14,
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   // Dropdown Styles
      dropdownContainer: {
@@ -1505,5 +2474,398 @@ const styles = StyleSheet.create({
     color: '#1e40af',
     fontWeight: '600',
   },
-
+  highlightBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: '#ffd700',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    zIndex: 1,
+  },
+  highlightText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  pickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+  },
+  pickerButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  pickerButtonConfirm: {
+    backgroundColor: '#1e40af',
+    borderColor: '#1e40af',
+  },
+  pickerButtonTextConfirm: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerModalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    textAlign: 'center',
+  },
+  webPickerContainer: {
+    padding: 20,
+  },
+  webDateInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#1f2937',
+    backgroundColor: '#ffffff',
+    width: '100%',
+    textAlign: 'center',
+  },
+  webTimeInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#1f2937',
+    backgroundColor: '#ffffff',
+    width: '100%',
+    textAlign: 'center',
+  },
+  webInputError: {
+    borderColor: '#ef4444',
+    borderWidth: 2,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  timePickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  timePickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timePickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  timePickerScroll: {
+    maxHeight: 150,
+    width: '100%',
+  },
+  timePickerSeparator: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginHorizontal: 10,
+  },
+  timeOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    marginVertical: 2,
+    marginHorizontal: 4,
+  },
+  timeOptionSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  timeOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  timeOptionTextSelected: {
+    color: '#ffffff',
+  },
+  // Calendar styles
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    marginBottom: 16,
+  },
+  calendarNavButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  calendarNavText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#667eea',
+  },
+  calendarMonthYear: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  calendarDaysHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    marginBottom: 8,
+  },
+  calendarDayHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    width: 40,
+    textAlign: 'center',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  calendarDay: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 2,
+    borderRadius: 20,
+  },
+  calendarDaySelected: {
+    backgroundColor: '#667eea',
+  },
+  calendarDayText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+  },
+  calendarDayTextSelected: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  calendarDayToday: {
+    backgroundColor: '#e0e7ff',
+    borderWidth: 1,
+    borderColor: '#667eea',
+  },
+  calendarDayTextToday: {
+    color: '#1e40af',
+    fontWeight: '600',
+  },
+  calendarDayDisabled: {
+    opacity: 0.5,
+  },
+  calendarDayTextDisabled: {
+    color: '#9ca3af',
+  },
+  // Time picker styles
+  timePickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  timePickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timePickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  timePickerScroll: {
+    maxHeight: 150,
+    width: '100%',
+  },
+  timePickerSeparator: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginHorizontal: 10,
+  },
+  timeOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    marginVertical: 2,
+    marginHorizontal: 4,
+  },
+  timeOptionSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  timeOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  timeOptionTextSelected: {
+    color: '#ffffff',
+  },
+  attachmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#f8fafc',
+  },
+  documentButton: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
+  imageButton: {
+    borderColor: '#10b981',
+    backgroundColor: '#ecfdf5',
+  },
+  attachmentButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#3b82f6',
+    marginLeft: 10,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  attachmentsList: {
+    marginBottom: 10,
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 5,
+    marginBottom: 5,
+  },
+  attachmentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  attachmentName: {
+    fontSize: 14,
+    color: '#1f2937',
+    marginLeft: 5,
+  },
+  removeButton: {
+    padding: 5,
+  },
+  attachmentsSection: {
+    marginBottom: 10,
+  },
+  attachmentCard: {
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 5,
+  },
+  attachmentCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  attachmentCardDocument: {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentCardImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  attachmentCardContent: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  attachmentCardName: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  attachmentCardSize: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontStyle: 'italic',
+  },
+  attachmentThumbnail: {
+    width: 50,
+    height: 50,
+    borderRadius: 5,
+  },
 }); 

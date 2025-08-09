@@ -8,10 +8,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import ApiService from '../services/api';
 import { isManagement, canAddHomework } from '../utils/roleUtils';
 
 export default function HomeworkScreen() {
+  const router = useRouter();
   const [homework, setHomework] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -884,7 +886,17 @@ export default function HomeworkScreen() {
         <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
           <View style={styles.headerContent}>
             <TouchableOpacity 
-              onPress={() => router.push('/(tabs)')} 
+              onPress={() => {
+                try {
+                  if (router && router.push) {
+                    router.push('/(tabs)');
+                  } else {
+                    console.error('Router not available for navigation');
+                  }
+                } catch (error) {
+                  console.error('Navigation error:', error);
+                }
+              }} 
               style={styles.backButton}
             >
               <ChevronLeft size={24} color="#ffffff" />

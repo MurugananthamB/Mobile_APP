@@ -17,7 +17,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['event', 'notice', 'homework', 'schedule', 'general'],
+    enum: ['event', 'notice', 'homework', 'schedule', 'attendance', 'fees', 'hostel', 'results', 'general'],
     required: true
   },
   relatedId: {
@@ -26,7 +26,7 @@ const notificationSchema = new mongoose.Schema({
   },
   relatedModel: {
     type: String,
-    enum: ['Event', 'Notice', 'Homework', 'Schedule']
+    enum: ['Event', 'Notice', 'Homework', 'Schedule', 'Attendance', 'Fees', 'Hostel', 'Results']
   },
   isRead: {
     type: Boolean,

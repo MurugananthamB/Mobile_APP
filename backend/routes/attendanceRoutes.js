@@ -4,7 +4,7 @@ const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
 const { 
   getAttendance, 
- getAttendanceStats,
+  getAttendanceStats,
   markAttendance,
   addDayManagement,
   getDayManagement,
@@ -29,6 +29,8 @@ router.post('/mark', markAttendance);
 
 // POST /api/attendance/scan - Mark attendance via scanned ID (protected)
 router.post('/scan', scanMarkAttendance);
+
+
 
 // Day Management Routes (for management users)
 // GET /api/attendance/marked-days - Get marked days for calendar display

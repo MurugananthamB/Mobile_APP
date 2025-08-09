@@ -145,26 +145,22 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleNotificationPress = (notification) => {
-    // Extract date from notification message or title
-    const dateMatch = notification.message.match(/(\d{1,2}\/\d{1,2}\/\d{4})|(\d{4}-\d{2}-\d{2})/);
-    
-    if (dateMatch) {
-      let dateStr = dateMatch[0];
+  const handleNotificationPress = async (notification) => {
+    try {
+      // Mark notification as read first
+      await markAsRead(notification._id);
       
-      // Convert date format if needed
-      if (dateStr.includes('/')) {
-        const [day, month, year] = dateStr.split('/');
-        dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      }
-      
-      // Navigate to attendance page with the specific date
+      // Navigate to notification details screen
+      console.log('📱 Navigating to notification details for:', notification._id);
       router.push({
-        pathname: '/(tabs)/attendance',
-        params: { selectedDate: dateStr }
+        pathname: '/notification-details',
+        params: { 
+          notificationId: notification._id
+        }
       });
-    } else {
-      // If no date found, show notification details
+    } catch (error) {
+      console.error('❌ Error handling notification press:', error);
+      // Fallback to showing notification details
       Alert.alert(
         notification.title,
         notification.message,

@@ -1,53 +1,28 @@
 // controllers/eventsController.js
 const Event = require('../models/events');
 const NotificationService = require('../services/notificationService');
+const User = require('../models/user'); // Added missing import for User
 
 // Get all events
 exports.getEvents = async (req, res) => {
   try {
-    console.log('🎯 Get Events Request Received');
-    console.log('👤 User:', req.user);
-    
-    const events = await Event.find({ isRegistrationOpen: true }).sort({ date: 1 });
-    console.log('📊 Found events:', events.length);
+    const events = await Event.find({})
+      .populate('createdBy', 'name email role')
+      .sort({ createdAt: -1 });
 
-    // Add user registration status
-    const eventsWithRegistration = events.map(event => {
-      const userRegistration = event.registeredUsers.find(reg => reg.userId.toString() === req.user.id);
-      return {
-        ...event.toObject(),
-        isRegistered: !!userRegistration,
-        userRegistrationStatus: userRegistration ? userRegistration.status : null
-      };
-    });
-
-    console.log('✅ Sending events response:', {
-      success: true,
-      count: eventsWithRegistration.length,
-      events: eventsWithRegistration.map(e => ({ title: e.title, category: e.category, date: e.date }))
-    });
-
-    res.json({ success: true, data: eventsWithRegistration });
+    res.json({ success: true, data: events });
   } catch (error) {
-    console.error('❌ Error getting events:', error);
+    console.error('Error in getEvents:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
-// Create new event
+// Create a new event
 exports.createEvent = async (req, res) => {
   try {
-    console.log('🎯 Create Event Request Received');
-    console.log('👤 User:', req.user);
-    console.log('📝 Request Body:', req.body);
-    
-    // Check if user has permission to create events (management or staff)
+    // Check if user has permission to create events
     if (req.user.role !== 'management' && req.user.role !== 'staff') {
-      console.log('❌ Permission denied - User role:', req.user.role);
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Only management and staff can create events' 
-      });
+      return res.status(403).json({ success: false, message: 'Permission denied. Only management and staff can create events.' });
     }
 
     const {
@@ -59,98 +34,42 @@ exports.createEvent = async (req, res) => {
       venue,
       validityDate,
       organizer,
-      requirements,
-      prizes
+      documents,
+      images
     } = req.body;
 
     // Validate required fields
-    console.log('🔍 Validating required fields...');
-    console.log('Title:', !!title, title);
-    console.log('Description:', !!description, description);
-    console.log('Date:', !!date, date);
-    console.log('StartTime:', !!startTime, startTime);
-    console.log('EndTime:', !!endTime, endTime);
-    console.log('Venue:', !!venue, venue);
-    console.log('ValidityDate:', !!validityDate, validityDate);
-    console.log('Organizer:', !!organizer, organizer);
-    
-    if (!title || !description || !date || !startTime || !endTime || !venue || !validityDate || !organizer) {
-      console.log('❌ Validation failed - missing required fields');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide all required fields' 
-      });
+    if (!title || !description || !date || !startTime || !endTime || !venue || !validityDate) {
+      return res.status(400).json({ success: false, message: 'All required fields must be provided' });
     }
 
     // Validate dates
-    console.log('📅 Date validation...');
-    console.log('Raw date:', date);
-    console.log('Raw validityDate:', validityDate);
-    
     const eventDate = new Date(date);
     const validity = new Date(validityDate);
     const today = new Date();
-    
-    // Reset time to start of day for accurate comparison
     today.setHours(0, 0, 0, 0);
-    eventDate.setHours(0, 0, 0, 0);
-    validity.setHours(0, 0, 0, 0);
-    
-    console.log('Parsed eventDate:', eventDate);
-    console.log('Parsed validity:', validity);
-    console.log('Today:', today);
-    console.log('EventDate valid:', !isNaN(eventDate.getTime()));
-    console.log('Validity valid:', !isNaN(validity.getTime()));
 
     if (isNaN(eventDate.getTime())) {
-      console.log('❌ Invalid event date');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid event date' 
-      });
+      return res.status(400).json({ success: false, message: 'Invalid event date' });
     }
 
     if (isNaN(validity.getTime())) {
-      console.log('❌ Invalid validity date');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid validity date' 
-      });
+      return res.status(400).json({ success: false, message: 'Invalid validity date' });
     }
 
-    // Allow event date to be today (exact creation date)
     if (eventDate < today) {
-      console.log('❌ Event date cannot be in the past');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Event date cannot be in the past' 
-      });
+      return res.status(400).json({ success: false, message: 'Event date cannot be in the past' });
     }
 
-    // Allow validity date to be today or future
     if (validity < today) {
-      console.log('❌ Validity date cannot be in the past');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validity date cannot be in the past' 
-      });
+      return res.status(400).json({ success: false, message: 'Validity date cannot be in the past' });
     }
 
     if (validity > eventDate) {
-      console.log('❌ Validity date cannot be after event date');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validity date cannot be after event date' 
-      });
+      return res.status(400).json({ success: false, message: 'Validity date cannot be after event date' });
     }
 
     // Create event
-    console.log('📝 Creating event...');
-    console.log('👤 User object:', req.user);
-    console.log('📝 Organizer from request:', organizer);
-    console.log('👤 User name:', req.user.name);
-    console.log('📝 Final organizer value:', organizer || req.user.name);
-    
     const event = new Event({
       title,
       description,
@@ -160,36 +79,34 @@ exports.createEvent = async (req, res) => {
       venue,
       validityDate: validity,
       organizer: organizer || req.user.name,
-      requirements: requirements || [],
-      prizes: prizes || [],
+      documents: documents || [],
+      images: images || [],
       createdBy: req.user._id
     });
 
     await event.save();
-    console.log('✅ Event created successfully:', event._id);
 
     // Send notifications to all users
     try {
-      await NotificationService.notifyNewEvent(event);
-      console.log('📱 Notifications sent for new event');
+      const users = await User.find({});
+      for (const user of users) {
+        await NotificationService.createNotification({
+          userId: user._id,
+          title: 'New Event',
+          message: `New event: ${title} on ${eventDate.toLocaleDateString()}`,
+          type: 'event',
+          relatedId: event._id,
+          relatedModel: 'Event'
+        });
+      }
     } catch (notificationError) {
-      console.error('⚠️ Error sending notifications:', notificationError);
-      // Don't fail the request if notifications fail
+      console.error('Error sending notifications:', notificationError);
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Event created successfully',
-      data: event
-    });
-
+    res.status(201).json({ success: true, message: 'Event created successfully', data: event });
   } catch (error) {
-    console.error('❌ Error creating event:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: error.message 
-    });
+    console.error('Error in createEvent:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 

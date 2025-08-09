@@ -177,7 +177,7 @@ export default function LoginScreen() {
                 color: '#374151',
                 marginBottom: 8
               }}>
-                Student ID
+                User ID
               </Text>
               <View style={{ 
                 flexDirection: 'row',
@@ -196,7 +196,7 @@ export default function LoginScreen() {
                     fontSize: 16,
                     color: '#1f2937'
                   }}
-                  placeholder="Enter your student ID"
+                  placeholder="Enter your user ID"
                   placeholderTextColor="#9ca3af"
                   value={studentId}
                   onChangeText={setStudentId}

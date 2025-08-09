@@ -14,6 +14,7 @@ router.put('/profile', protect, async (req, res) => {
   try {
     console.log('📝 Profile update request received');
     console.log('📝 Request body:', req.body);
+    console.log('📝 User ID:', req.user.id);
     
     const User = require('../models/user');
     
@@ -27,17 +28,40 @@ router.put('/profile', protect, async (req, res) => {
       });
     }
 
+    console.log('📝 Current user data:', currentUser.getSafeData());
+
     // Update allowed fields
-    const allowedUpdates = ['name', 'email', 'phone', 'address'];
+    const allowedUpdates = [
+      'name', 'email', 'phone', 'address',
+      // Hostel fields
+      'hostelRoom', 'hostelBlock', 'hostelFloor', 'hostelWarden', 
+      'hostelWardenPhone', 'hostelCheckInDate', 'hostelCheckOutDate', 'isHostelResident',
+      // Student fields
+      'rollNo', 'assignedClass', 'assignedSection', 'dateOfBirth', 'bloodGroup',
+      'parentName', 'parentPhone', 'emergencyContact',
+      // Staff fields
+      'qualification', 'subject',
+      // Management fields
+      'department', 'position', 'experience'
+    ];
     const updates = {};
     
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
+        console.log(`📝 Field "${field}" will be updated to:`, req.body[field]);
       }
     });
 
     console.log('📝 Updates to apply:', updates);
+    
+    if (Object.keys(updates).length === 0) {
+      console.log('⚠️ No valid fields to update');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No valid fields to update' 
+      });
+    }
     
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -54,7 +78,7 @@ router.put('/profile', protect, async (req, res) => {
     }
 
     console.log('✅ Profile updated successfully');
-    console.log('✅ Updated user:', updatedUser.getSafeData());
+    console.log('✅ Updated user data:', updatedUser.getSafeData());
     
     res.json({ 
       success: true, 

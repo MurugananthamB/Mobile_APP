@@ -42,8 +42,20 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  requirements: [String],
-  prizes: [String],
+  documents: [{
+    name: { type: String },
+    uri: { type: String },
+    size: { type: Number },
+    type: { type: String },
+    mimeType: { type: String }
+  }],
+  images: [{
+    name: { type: String },
+    uri: { type: String },
+    size: { type: Number },
+    type: { type: String },
+    mimeType: { type: String }
+  }],
   registeredUsers: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -59,7 +71,6 @@ const eventSchema = new mongoose.Schema({
       default: 'registered',
     },
   }],
-  images: [String],
 }, {
   timestamps: true,
 });

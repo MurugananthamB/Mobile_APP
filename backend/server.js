@@ -3,7 +3,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const path = require('path');
+const { spawn } = require('child_process');
 const connectDB = require('./config/db');
 
 // Routes
@@ -49,9 +49,6 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Log incoming requests (for development) - optimized for high concurrency
 app.use((req, res, next) => {
   // Only log scanner requests for performance
@@ -92,4 +89,34 @@ app.use((err, req, res, next) => {
 // Start the server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
+  
+  // Start scanner software automatically
+  console.log('🔍 Starting barcode scanner software...');
+  const scannerProcess = spawn('node', ['scanner-software.js'], {
+    stdio: 'inherit',
+    cwd: __dirname
+  });
+  
+  scannerProcess.on('error', (error) => {
+    console.error('❌ Failed to start scanner software:', error.message);
+  });
+  
+  scannerProcess.on('exit', (code) => {
+    if (code !== 0) {
+      console.log(`⚠️ Scanner software exited with code ${code}`);
+    }
+  });
+  
+  // Handle server shutdown gracefully
+  process.on('SIGINT', () => {
+    console.log('\n🛑 Shutting down server and scanner...');
+    scannerProcess.kill();
+    process.exit(0);
+  });
+  
+  process.on('SIGTERM', () => {
+    console.log('\n🛑 Shutting down server and scanner...');
+    scannerProcess.kill();
+    process.exit(0);
+  });
 });

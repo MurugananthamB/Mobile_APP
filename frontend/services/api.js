@@ -334,12 +334,15 @@ class ApiService {
     });
   }
 
+
+
   async getStaffAndManagementUsers() {
     return await this.makeRequest('/auth/staff-management-users');
   }
 
-  async getAttendanceStats() {
-    return await this.makeRequest('/attendance/stats');
+  async getAttendanceStats(month, year) {
+    const query = month && year ? `?month=${month}&year=${year}` : '';
+    return await this.makeRequest(`/attendance/stats${query}`);
   }
 
   // =============== DAY MANAGEMENT METHODS ===============
@@ -588,6 +591,16 @@ class ApiService {
   async getNotificationStats(type = null) {
     const params = type ? `?type=${type}` : '';
     return await this.makeRequest(`/notifications/stats${params}`);
+  }
+
+  async deleteNotification(notificationId) {
+    return await this.makeRequest(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getNotificationById(notificationId) {
+    return await this.makeRequest(`/notifications/${notificationId}`);
   }
 }
 

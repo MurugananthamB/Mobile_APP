@@ -3,60 +3,33 @@ const Schedule = require('../models/schedule');
 const User = require('../models/user');
 const NotificationService = require('../services/notificationService');
 
-// Get all schedules for the user based on their role and class
-// Everyone can fetch created data, but filtered based on their role and assignments
+// Get schedules for the current user
 exports.getSchedules = async (req, res) => {
   try {
-    console.log('📅 Getting schedules for user:', req.user._id);
-    console.log('👤 User role:', req.user.role);
-    console.log('👤 User class:', req.user.class);
-    console.log('👤 User section:', req.user.section);
-    console.log('👤 User department:', req.user.department);
-
-    if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'User not authenticated' 
-      });
-    }
+    const { class: userClass, section, department, role } = req.user;
+    const { targetAudience, day } = req.query;
 
     let query = {};
 
-    // Show ALL schedules to everyone (no filtering)
-    query = {};
-    console.log('🌐 Universal query - showing ALL schedules to everyone');
-    console.log('👤 User role:', req.user.role);
-    console.log('👤 User ID:', req.user._id);
-
-    console.log('🔍 Query:', JSON.stringify(query));
-
-    const schedules = await Schedule.find(query)
-      .populate('createdBy', 'name')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    console.log(`📅 Found ${schedules.length} schedules for ${req.user.role} user`);
-    
-    // Debug: Show details of returned schedules
-    if (req.user.role === 'staff') {
-      console.log('📋 Returned schedules for staff:');
-      schedules.forEach(schedule => {
-        console.log(`  - ${schedule.title} (${schedule.targetAudience}) - Created by: ${schedule.createdBy?.name || 'Unknown'}`);
-      });
+    // Filter by targetAudience if provided
+    if (targetAudience) {
+      query.targetAudience = targetAudience;
     }
 
-    res.json({
-      success: true,
-      data: schedules
-    });
+    // Filter by day if provided
+    if (day) {
+      query.day = day;
+    }
 
+    // Universal query - show all schedules to everyone
+    const schedules = await Schedule.find(query)
+      .populate('createdBy', 'name email role')
+      .sort({ day: 1, startTime: 1 });
+
+    res.json({ success: true, data: schedules });
   } catch (error) {
-    console.error('❌ Error getting schedules:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get schedules',
-      error: error.message
-    });
+    console.error('Error in getSchedules:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
@@ -108,152 +81,86 @@ exports.getScheduleById = async (req, res) => {
   }
 };
 
-// Create new schedule with role-based access control
+// Create a new schedule
 exports.createSchedule = async (req, res) => {
   try {
-    console.log('📅 Creating new schedule');
-    console.log('👤 User:', req.user._id, req.user.role);
-    console.log('📝 Request body:', req.body);
-
-    if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'User not authenticated' 
-      });
-    }
-
-    // Check if user has permission to create schedules
-    if (req.user.role !== 'staff' && req.user.role !== 'management') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only staff and management can create schedules'
-      });
-    }
-
     const {
       title,
       description,
-      scheduleType,
-      subject,
-      studyHours,
-      toDate,
+      day,
+      startTime,
+      endTime,
       targetAudience,
-      assignedClass,
-      assignedSection,
-      assignedDepartment,
-      attachments
+      class: scheduleClass,
+      section,
+      department,
+      room,
+      teacher
     } = req.body;
 
     // Validate required fields
-    console.log('🔍 Validating fields:', {
-      title: !!title,
-      description: !!description,
-      scheduleType: !!scheduleType,
-      subject: !!subject,
-      studyHours: !!studyHours,
-      toDate: !!toDate,
-      targetAudience: !!targetAudience
-    });
-    
-    if (!title || !description || !scheduleType || !subject || !studyHours || !toDate || !targetAudience) {
-      console.log('❌ Missing required fields');
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields'
-      });
+    if (!title || !description || !day || !startTime || !endTime || !targetAudience) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    // Role-based access control for target audience
-    console.log('🔍 Access control check:', {
-      userRole: req.user.role,
-      targetAudience,
-      assignedClass: !!assignedClass,
-      assignedSection: !!assignedSection,
-      assignedDepartment: !!assignedDepartment
-    });
-
-    // Staff can only assign to students
+    // Access control
     if (req.user.role === 'staff') {
       if (targetAudience === 'staff' || targetAudience === 'both') {
-        console.log('❌ Staff cannot assign schedules to staff or both');
-        return res.status(403).json({
-          success: false,
-          message: 'Staff can only assign schedules to students'
-        });
+        return res.status(403).json({ success: false, message: 'Staff cannot assign schedules to staff or both' });
       }
-      
-      if (targetAudience !== 'students') {
-        console.log('❌ Staff can only assign to students');
-        return res.status(403).json({
-          success: false,
-          message: 'Staff can only assign schedules to students'
-        });
+      if (targetAudience === 'students' && (!scheduleClass || !section)) {
+        return res.status(400).json({ success: false, message: 'Class and section required for student schedules' });
       }
     }
 
-    // Management can assign to anyone (no restrictions)
-
-    // Validate target audience specific fields
-    if ((targetAudience === 'students' || targetAudience === 'both') && (!assignedClass || !assignedSection)) {
-      console.log('❌ Missing class/section for student schedule');
-      return res.status(400).json({
-        success: false,
-        message: 'Class and section are required for student schedules'
-      });
+    if (req.user.role === 'management') {
+      if (targetAudience === 'staff' && !department) {
+        return res.status(400).json({ success: false, message: 'Department required for staff schedules' });
+      }
+      if (targetAudience === 'students' && (!scheduleClass || !section)) {
+        return res.status(400).json({ success: false, message: 'Class and section required for student schedules' });
+      }
     }
 
-    if ((targetAudience === 'staff' || targetAudience === 'both') && !assignedDepartment) {
-      console.log('❌ Missing department for staff schedule');
-      return res.status(400).json({
-        success: false,
-        message: 'Department is required for staff schedules'
-      });
-    }
-
-    // Create new schedule
-    const newSchedule = new Schedule({
+    // Create schedule
+    const schedule = new Schedule({
       title,
       description,
-      scheduleType,
-      subject,
-      studyHours,
-      toDate: new Date(toDate),
+      day,
+      startTime,
+      endTime,
       targetAudience,
-      assignedClass,
-      assignedSection,
-      assignedDepartment,
-      attachments: attachments || [],
-      createdBy: req.user._id,
-      createdByRole: req.user.role,
-      teacher: req.user.name
+      class: scheduleClass,
+      section,
+      department,
+      room,
+      teacher,
+      createdBy: req.user._id
     });
 
-    const savedSchedule = await newSchedule.save();
+    const savedSchedule = await schedule.save();
 
-    console.log('✅ Schedule created successfully:', savedSchedule._id);
-
-    // Send notifications to relevant users
+    // Send notifications
     try {
-      await NotificationService.notifyScheduleUpdate(savedSchedule);
-      console.log('📱 Notifications sent for new schedule');
+      const users = await User.find({});
+      for (const user of users) {
+        await NotificationService.createNotification({
+          userId: user._id,
+          title: 'New Schedule',
+          message: `New schedule: ${title} on ${day}`,
+          type: 'schedule',
+          relatedId: savedSchedule._id,
+          relatedModel: 'Schedule'
+        });
+      }
     } catch (notificationError) {
-      console.error('⚠️ Error sending notifications:', notificationError);
-      // Don't fail the request if notifications fail
+      console.error('Error sending notifications:', notificationError);
     }
 
-    res.status(201).json({
-      success: true,
-      message: 'Schedule created successfully',
-      data: savedSchedule
-    });
-
+    res.status(201).json({ success: true, message: 'Schedule created successfully', data: savedSchedule });
   } catch (error) {
-    console.error('❌ Error creating schedule:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create schedule',
-      error: error.message
-    });
+    console.error('Error in createSchedule:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 

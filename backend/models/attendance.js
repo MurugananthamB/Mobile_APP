@@ -8,7 +8,7 @@ const attendanceRecordSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['present', 'absent', 'late', 'holiday', 'leave', 'working', 'half_present_morning', 'half_present_afternoon', 'half_absent'],
+    enum: ['present', 'absent', 'late', 'holiday', 'leave', 'working', 'half_present_morning', 'half_present_afternoon', 'half_present', 'half_absent'],
     required: true,
   },
   checkInTime: {
@@ -64,6 +64,14 @@ const attendanceSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  halfPresentDays: {
+    type: Number,
+    default: 0,
+  },
+  halfAbsentDays: {
+    type: Number,
+    default: 0,
+  },
   percentage: {
     type: Number,
     default: 0,
@@ -80,19 +88,21 @@ attendanceSchema.pre('save', function(next) {
   );
   this.totalDays = workingDays.length;
   
-  // Calculate present and half-present days
-  this.presentDays = this.records.reduce((sum, record) => {
-    if (record.status === 'present') return sum + 1; // Full Day Present
-    if (record.status === 'half_present_morning' || record.status === 'half_present_afternoon') return sum + 0.5; // Half Day Present (Morning or Afternoon)
-    if (record.status === 'half_present') return sum + 0.5;
-    return sum;
-  }, 0);
+  // Calculate present days (full days only)
+  this.presentDays = this.records.filter(record => record.status === 'present').length;
   
-  this.absentDays = this.records.reduce((sum, record) => {
-    if (record.status === 'absent') return sum + 1;
-    if (record.status === 'half_absent') return sum + 0.5;
-    return sum;
-  }, 0);
+  // Calculate half present days
+  this.halfPresentDays = this.records.filter(record => 
+    record.status === 'half_present_morning' || 
+    record.status === 'half_present_afternoon' || 
+    record.status === 'half_present'
+  ).length;
+  
+  // Calculate absent days (full days only)
+  this.absentDays = this.records.filter(record => record.status === 'absent').length;
+  
+  // Calculate half absent days
+  this.halfAbsentDays = this.records.filter(record => record.status === 'half_absent').length;
   
   this.lateDays = this.records.filter(record => record.status === 'late').length;
   this.holidayDays = this.records.filter(record => record.status === 'holiday').length;
@@ -100,7 +110,9 @@ attendanceSchema.pre('save', function(next) {
   this.workingDays = this.records.filter(record => record.status === 'working').length;
   
   if (this.totalDays > 0) {
-    this.percentage = Math.round((this.presentDays + this.lateDays) / this.totalDays * 100);
+    // Include half days in the calculation (0.5 weight each)
+    const totalPresentDays = this.presentDays + (this.halfPresentDays * 0.5) + this.lateDays;
+    this.percentage = Math.round((totalPresentDays / this.totalDays) * 100);
   } else {
     this.percentage = 0; // Avoid division by zero
   } 

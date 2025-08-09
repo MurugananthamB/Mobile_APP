@@ -133,6 +133,66 @@ class NotificationService {
     return await this.createNotificationsForAllUsers(notificationData);
   }
 
+  // Attendance-specific notification
+  static async notifyAttendanceUpdate(attendanceData) {
+    const date = new Date(attendanceData.date);
+    const formattedDate = date.toLocaleDateString();
+    const isoDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    const notificationData = {
+      title: '📊 Attendance Update',
+      message: `Your attendance has been marked for ${formattedDate} (${isoDate})`,
+      type: 'attendance',
+      relatedId: attendanceData._id,
+      relatedModel: 'Attendance',
+      priority: 'medium'
+    };
+
+    return await this.createNotification(attendanceData.userId, notificationData);
+  }
+
+  // Fees-specific notification
+  static async notifyFeesUpdate(feesData) {
+    const notificationData = {
+      title: '💰 Fees Update',
+      message: `New fees record: ${feesData.title || 'Fee update'} - Amount: ₹${feesData.amount}`,
+      type: 'fees',
+      relatedId: feesData._id,
+      relatedModel: 'Fees',
+      priority: 'high'
+    };
+
+    return await this.createNotification(feesData.userId, notificationData);
+  }
+
+  // Hostel-specific notification
+  static async notifyHostelUpdate(hostelData) {
+    const notificationData = {
+      title: '🏠 Hostel Update',
+      message: `Hostel information updated: ${hostelData.message || 'Hostel details have been modified'}`,
+      type: 'hostel',
+      relatedId: hostelData._id,
+      relatedModel: 'Hostel',
+      priority: 'medium'
+    };
+
+    return await this.createNotification(hostelData.userId, notificationData);
+  }
+
+  // Results-specific notification
+  static async notifyResultsUpdate(resultsData) {
+    const notificationData = {
+      title: '📈 Results Update',
+      message: `New results available: ${resultsData.title || 'Academic results'} for ${resultsData.examType || 'examination'}`,
+      type: 'results',
+      relatedId: resultsData._id,
+      relatedModel: 'Results',
+      priority: 'high'
+    };
+
+    return await this.createNotificationsForRoles(['student'], notificationData);
+  }
+
   // Get notifications for a user
   static async getUserNotifications(userId, options = {}) {
     try {
@@ -151,6 +211,35 @@ class NotificationService {
       return notifications;
     } catch (error) {
       console.error('❌ Error getting user notifications:', error);
+      throw error;
+    }
+  }
+
+  // Get specific notification by ID
+  static async getNotificationById(notificationId, userId) {
+    try {
+      console.log(`🔍 Looking for notification with ID: ${notificationId} for user: ${userId}`);
+      
+      const notification = await Notification.findOne({
+        _id: notificationId,
+        userId
+      });
+      
+      if (!notification) {
+        console.log(`❌ Notification not found for ID: ${notificationId} and user: ${userId}`);
+        return null;
+      }
+      
+      console.log(`✅ Found notification:`, {
+        id: notification._id,
+        title: notification.title,
+        type: notification.type,
+        isRead: notification.isRead
+      });
+      
+      return notification;
+    } catch (error) {
+      console.error('❌ Error getting notification by ID:', error);
       throw error;
     }
   }
@@ -224,6 +313,25 @@ class NotificationService {
       };
     } catch (error) {
       console.error('❌ Error getting notification stats:', error);
+      throw error;
+    }
+  }
+
+  // Delete notification
+  static async deleteNotification(notificationId, userId) {
+    try {
+      const result = await Notification.findOneAndDelete({
+        _id: notificationId,
+        userId
+      });
+      
+      if (result) {
+        console.log(`🗑️ Deleted notification ${notificationId} for user ${userId}`);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
       throw error;
     }
   }

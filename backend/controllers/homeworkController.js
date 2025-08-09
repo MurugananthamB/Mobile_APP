@@ -528,6 +528,57 @@ exports.getHomework = async (req, res) => {
   }
 };
 
+// Get homework for staff (filtered by subject and department)
+exports.getHomeworkForStaff = async (req, res) => {
+  try {
+    const { subject, department } = req.user;
+    const { status, assignedBy } = req.query;
+
+    let query = {};
+
+    // Filter by subject if user has a subject
+    if (subject) {
+      query.subject = subject;
+    }
+
+    // Filter by department if user has a department
+    if (department) {
+      query.department = department;
+    }
+
+    // Filter by status if provided
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter by assignedBy if provided
+    if (assignedBy) {
+      query.assignedBy = assignedBy;
+    }
+
+    // Get homework that is either:
+    // 1. Assigned by this user
+    // 2. Assigned to staff (targetAudience: 'staff' or 'both')
+    // 3. Assigned to the user's subject/department
+    query.$or = [
+      { assignedBy: req.user._id },
+      { targetAudience: { $in: ['staff', 'both'] } },
+      { subject: subject },
+      { department: department }
+    ];
+
+    const homework = await Homework.find(query)
+      .populate('assignedBy', 'name email role')
+      .populate('assignedTo', 'name email role')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: homework });
+  } catch (error) {
+    console.error('Error in getHomeworkForStaff:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
 // Sample data creation removed - homework system starts clean
 
 // Get specific homework by ID

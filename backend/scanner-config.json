@@ -1,0 +1,13 @@
+{
+  "autoSave": true,
+  "logScans": true,
+  "retryAttempts": 3,
+  "retryDelay": 1000,
+  "soundEnabled": true,
+  "displayMode": "detailed",
+  "autoMode": true,
+  "backgroundMode": true,
+  "scanTimeout": 500,
+  "enableBackgroundProcessing": true,
+  "globalScanner": true
+}

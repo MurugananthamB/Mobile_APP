@@ -97,6 +97,37 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
+// Get specific notification by ID
+exports.getNotificationById = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const userId = req.user._id;
+
+    console.log(`🔍 Getting notification by ID: ${notificationId} for user: ${userId}`);
+
+    const notification = await NotificationService.getNotificationById(notificationId, userId);
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: notification
+    });
+  } catch (error) {
+    console.error('❌ Error getting notification by ID:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching notification',
+      error: error.message
+    });
+  }
+};
+
 // Get notification statistics
 exports.getNotificationStats = async (req, res) => {
   try {
@@ -114,6 +145,35 @@ exports.getNotificationStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching notification statistics',
+      error: error.message
+    });
+  }
+};
+
+// Delete notification
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const userId = req.user._id;
+
+    const result = await NotificationService.deleteNotification(notificationId, userId);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting notification',
       error: error.message
     });
   }

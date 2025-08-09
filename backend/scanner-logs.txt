@@ -1,0 +1,40 @@
+2025-08-09T09:15:33.246Z | MAPH60432 | Scan recorded. No attendance status marked.
+2025-08-09T09:23:03.418Z | MAPH60354 | Scan recorded. No attendance status marked.
+2025-08-09T09:23:48.789Z | MAPH60432 | ERROR: Server error
+2025-08-09T09:27:42.533Z | MAPH60354 | Scan recorded. No attendance status marked.
+2025-08-09T09:31:38.716Z | MAPH60354 | Attendance marked as Full Day Present for user Surendar.
+2025-08-09T09:31:43.820Z | MAPH60432 | Attendance marked as Full Day Present for user Aadarsh.
+2025-08-09T09:33:03.585Z | MAPH60336 | ERROR: User not found
+2025-08-09T09:33:49.410Z | MAPH60354 | Attendance marked as Full Day Present for user Surendar.
+2025-08-09T09:33:53.541Z | MAPH60432 | Attendance marked as Full Day Present for user Aadarsh.
+2025-08-09T09:39:05.212Z | MAPH60205 | Attendance marked as Full Day Present for user Sakthi Selvam J.
+2025-08-09T09:49:06.248Z | MAPH60336 | Attendance marked as Full Day Present for user _mr.creator_.
+2025-08-09T09:59:37.761Z | MAPH60432 | Attendance marked as Full Day Present for user Aadarsh.
+2025-08-09T09:59:57.467Z | MAPH60336 | Attendance marked as Full Day Present for user _mr.creator_.
+2025-08-09T10:00:01.036Z | MAPH60354 | Attendance marked as Full Day Present for user Surendar.
+2025-08-09T10:09:29.842Z | MAPH60354 | ERROR: 
+2025-08-09T10:09:39.569Z | MAPH60432 | ERROR: 
+2025-08-09T10:20:43.339Z | MAPH60432 | Attendance marked as Full Day Present for user Aadarsh.
+2025-08-09T10:58:52.822Z | MAPH60354 | Attendance marked as Full Day Present for user Surendar.
+2025-08-09T11:15:39.982Z | MAPH60432 | Attendance marked as Full Day Present for user Aadarsh.
+2025-08-09T11:15:41.839Z | MAPH60432 | Already marked as Full Day Present for user Aadarsh.
+2025-08-09T11:15:49.608Z | MAPH60354 | Attendance marked as Full Day Present for user Surendar.
+2025-08-09T11:18:48.711Z | MAPH60354 | Barcode scanned successfully: MAPH60354
+2025-08-09T11:18:56.609Z | MAPH60354 | Barcode scanned successfully: MAPH60354
+2025-08-09T11:19:02.688Z | MAPH60432 | Barcode scanned successfully: MAPH60432
+2025-08-09T11:19:09.949Z | MAPH60336 | Barcode scanned successfully: MAPH60336
+2025-08-09T11:19:41.769Z | MAPH60354 | Attendance marked as Full Day Present for user Surendar.
+2025-08-09T11:19:47.077Z | MAPH60336 | Attendance marked as Full Day Present for user _mr.creator_.
+2025-08-09T11:19:51.805Z | MAPH60432 | Attendance marked as Full Day Present for user Aadarsh.
+2025-08-09T11:20:22.439Z | NOW REMOVE THE E | ERROR: Invalid barcode format. Must start with MAPH.
+2025-08-09T11:20:26.730Z | UNWNATED FILES | ERROR: Invalid barcode format. Must start with MAPH.
+2025-08-09T11:22:34.391Z | MAPH60354 | Already marked as Full Day Present for user Surendar.
+2025-08-09T11:22:38.606Z | MAPH60336 | Already marked as Full Day Present for user _mr.creator_.
+2025-08-09T11:22:41.585Z | MAPH60432 | Already marked as Full Day Present for user Aadarsh.
+2025-08-09T11:23:25.367Z | ACC | ERROR: Invalid barcode format. Must start with MAPH.
+2025-08-09T11:23:31.507Z | EXAPLIN THIS | ERROR: Invalid barcode format. Must start with MAPH.
+2025-08-09T11:26:27.231Z | WHAT IS THIS ERROR | ERROR: Invalid barcode format. Must start with MAPH.
+2025-08-09T11:26:36.744Z | MAPH60336 | Already marked as Full Day Present for user _mr.creator_.
+2025-08-09T11:26:38.728Z | MAPH60336 | Already marked as Full Day Present for user _mr.creator_.
+2025-08-09T11:26:41.555Z | MAPH60354 | Already marked as Full Day Present for user Surendar.
+2025-08-09T11:26:43.780Z | MAPH60432 | Already marked as Full Day Present for user Aadarsh.
